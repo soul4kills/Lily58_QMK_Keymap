@@ -43,6 +43,9 @@ bool        BTN_SWAP = false; // If true, swap the behavior of O_ & I_ keycodes
 bool        mb_mouse_mode = false;
 uint16_t    mb_move_time = 0;
 uint16_t    mb_click_time = 2500;
+bool        ATML = false;
+bool        ATML_Active = false;
+uint16_t    ATML_Timer;
 
 int         GROWTH_FACTOR = 8; // Moved here to retain value across key presses
 
@@ -157,7 +160,8 @@ enum custom_keycodes {
     B_SWAP,                 // 78
     MS_TYPE,                // 79
     R_RBRC,                 // 80
-    L_LBRC                  // 81
+    L_LBRC,                 // 81
+    ML_AUTO                 // 82
 //    MS_DEBUG,               // 79
 };
 
@@ -242,6 +246,13 @@ bool process_record_user(uint16_t keycode, keyrecord_t *record) {
 
         case L_LBRC:
             return layer_jump_handler(&bspc_l3_timer, 1, KC_LBRC, 250, record);
+        // Auto Mouse Layer Toggle
+        case ML_AUTO:
+            if (record->event.pressed) {
+                ATML = !ATML;
+            }
+            return false;
+        // Bracket keys with tap-hold layer switching
 /*
         case MS_DEBUG:
             if (record->event.pressed) {
@@ -261,17 +272,21 @@ bool process_record_user(uint16_t keycode, keyrecord_t *record) {
 const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
 /* QWERTY
  * ,-----------------------------------------.                    ,-----------------------------------------.
- * |   1  |   2  |   3  |   4  |   5  |  6   |                    |   7  |   8  |   9  |   0  |  ~   |
+ * |   1  |   2  |   3  |   4  |   5  |  6   |                    |   7  |   8  |   9  |   0  |  ~   |   +  |
+ *                                                                                                     BSPC
  * |------+------+------+------+------+------|                    |------+------+------+------+------+------|
  * | Tab  |   Q  |   W  |   E  |   R  |   T  |                    |   Y  |   U  |   I  |   O  |   P  |  -   |
+ *                                MB2    MB2                         MB1    MB2
  * |------+------+------+------+------+------|                    |------+------+------+------+------+------|
  * |LCTRL |   A  |   S  |   D  |   F  |   G  |-------.    ,-------|   H  |   J  |   K  |   L  |   ;  |  '   |
- * |------+------+------+------+------+------|   [   |    |    ]  |------+------+------+------+------+------|
+ *                                               [            ]
+ * |------+------+------+------+------+------|   L1  |    |  L2   |------+------+------+------+------+------|
  * |LShift|   Z  |   X  |   C  |   V  |   B  |-------|    |-------|   N  |   M  |   ,  |   .  |   /  |RShift|
- * `-----------------------------------------/       /     \      \-----------------------------------------'
- *                   |ALT   | LGUI | Space| / CAPS  /       \ DEL  \  | Space| RGUI |ALT   |
- *                   |      |      |      |/  L1   /         \      \ |      |      |      |
- *                   `-------------------''-------'           '------''--------------------'
+ *                                                                                                     Enter
+ * `-----------------------------------------/       /    \       \-----------------------------------------'
+ *                   | ALT  | LGUI | Space| / CAPS  /      \ Space \  | Space| ESC  | BSPC |
+ *                   | DEL  |      |      |/L1 / L2/        \L2 / l1\ |      |  `   |      |
+ *                   `-------------------''-------'          '------''---------------------'
  */
   [0] = LAYOUT(
     KC_1,KC_2,KC_3,  KC_4,  KC_5,  KC_6,                       KC_7,  KC_8,  KC_9,   KC_0,  KC_MINS,   PLS_BSPC,
@@ -283,65 +298,95 @@ const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
 /* LOWER
  * ,-----------------------------------------.                    ,-----------------------------------------.
  * |  F1  |  F2  |  F3  |  F4  |  F5  |  F6  |                    |  F7  |  F8  |  F9  | F10  | F11  | F12  |
+ *
  * |------+------+------+------+------+------|                    |------+------+------+------+------+------|
- * |      |   !  |   @  |   #  |   $  |   %  |                    |   ^  |   &  |   *  |   (  |   )  |      |
+ * |      |VDesk |VDesk |  Up  |  Vol |  Vol |                    |   /  |   7  |   8  |   9  |  -   |  +   |
+ *          Left  Right          Down    Up                                                      _      =
  * |------+------+------+------+------+------|                    |------+------+------+------+------+------|
- * |      |   1  |   2  |   3  |   4  |   5  |-------.    ,-------|   6  |   7  |   8  |   9  |   0  |      |
- * |------+------+------+------+------+------|   [   |    |    ]  |------+------+------+------+------+------|
- * |      |      |      |      |      |      |-------|    |-------|   |  |   `  |   +  |   {  |   }  |      |
- * `-----------------------------------------/       /     \      \-----------------------------------------'
- *                   |LOWER | LGUI |Space | / Alt   /       \BackSP\  | Space| RGUI |RAISE |
- *                   |      |      |      |/       /         \      \ |      |      |      |
- *                   `-------------------''-------'           '------''--------------------'
+ * | Task | Redo | Left | Down |  Up  | Prev |-------.    ,-------|   *  |   4  |   5  |   6  |   +  |  F12 |
+ *  Manage                                     Play         Mute
+ * |------+------+------+------+------+------|       |    |       |------+------+------+------+------+------|
+ * |LShift| Undo | Cut  | Copy | Paste| Next |-------|    |-------|      |   1  |   2  |   3  |   .  |RShift|
+ *
+ * `-----------------------------------------/       /    \       \-----------------------------------------'
+ *                   |      | LGUI |Space | / Alt   /      \BackSP \  | Space|   0  |      |
+ *                   |      |      |      |/ L2    /        \   L3  \ |      |      |      |
+ *                   `-------------------''-------'          '------''---------------------'
  */
   [1] = LAYOUT(
     KC_F1,  KC_F2,  KC_F3,  KC_F4,  KC_F5,  KC_F6,                        KC_F7,  KC_F8, KC_F9, KC_F10, KC_F11, KC_F12,
     KC_NO,C(G(KC_LEFT)),C(G(KC_RGHT)),KC_UP,KC_VOLD,KC_VOLU,               KC_PSLS,KC_P7, KC_P8, KC_P9, KC_MINS, KC_EQL,
     C(S(KC_ESC)),  C(KC_Y),KC_LEFT, KC_DOWN,KC_RGHT,KC_MPRV,              KC_ASTR,KC_P4, KC_P5, KC_P6, KC_PPLS, KC_F12,
     KC_LSFT,C(KC_Z),C(KC_X),C(KC_C),C(KC_V),KC_MNXT,KC_MPLY,         KC_MUTE, DF(0),  KC_P1, KC_P2, KC_P3, KC_PDOT, KC_RSFT,
-              KC_TRNS, KC_TRNS, I_SPC_L2, O_SPC_L2,                    BW_TAB_L3, BW_TAB_L3, KC_TRNS,KC_TRNS
+              KC_TRNS, KC_TRNS, I_SPC_L2, O_SPC_L2,                    BW_TAB_L3, BW_TAB_L3, KC_P0,KC_TRNS
 ),
 /* RAISE
  * ,-----------------------------------------.                    ,-----------------------------------------.
- * |      |      |      |      |      |      |                    |      |      |      |      |      |      |
+ * |      |      |      |      |      |      |                    | Play | Back |Forth | Min  | Max  |Close |]
+ *                                                                  Pause                Wind   Wind   Wind
  * |------+------+------+------+------+------|                    |------+------+------+------+------+------|
- * |  F1  |  F2  |  F3  |  F4  |  F5  |  F6  |                    |  F7  |  F8  |  F9  | F10  | F11  | F12  |
+ * |      | PgUp | Home |  Up  |      |      |                    | Last | F12  |  Up  | Left | Right| Close|
+ *                                                                  Wind                 Tab     Tab    Tab
  * |------+------+------+------+------+------|                    |------+------+------+------+------+------|
- * |      |      |      |      |      |      |-------.    ,-------|      | Left | Down |  Up  |Right |      |
+ * |      | PgDn | Left | Down |  Up  |      |-------.    ,-------| Cycle| Left | Down |  Up  | Tab  | Undo |
+ *                                                                 Window                       Wind    Tab
  * |------+------+------+------+------+------|   [   |    |    ]  |------+------+------+------+------+------|
- * |      |      |      |      |      |      |-------|    |-------|   +  |   =  |   [  |   ]  |   \  |      |
+ * |LShift| Undo | Cut  | Copy | Paste|      |-------|    |-------| Cut  | Copy | Paste|  Vol |  Vol |TskBar|
+ *                                                                                       Down    Up    BTNS
  * `-----------------------------------------/       /     \      \-----------------------------------------'
- *                   |LOWER | LGUI | Space| /Alt    /       \ TRNS \  |Enter | RGUI |RAISE |
- *                   |      |      |      |/  L3   /         \      \ |      |      |      |
+ *                   |      |      | Space| /  Alt  /       \ TRNS \  |Enter |      |      |
+ *                   |      |      |      |/   L3  /         \  L1  \ |      |      |      |
  *                   `-------------------''-------'           '------''--------------------'
  */
   [2] = LAYOUT(
-    KC_NO,   KC_NO,  KC_NO,  KC_NO,  KC_NO,  KC_NO,                 KC_MPLY, KC_VOLU, KC_VOLD, G(KC_DOWN),G(KC_UP), A(KC_F4),
+    KC_NO,   KC_NO,  KC_NO,  KC_NO,  KC_NO,  KC_NO,                 KC_MPLY, KC_WWW_BACK, KC_WWW_FORWARD, G(KC_DOWN),G(KC_UP), A(KC_F4),
     KC_NO,   KC_PGUP,KC_HOME,KC_UP,  KC_END, KC_NO,                 A(KC_TAB), KC_F11,KC_UP, RCS(KC_TAB), RCTL(KC_TAB), RCTL(KC_W),
     KC_NO,   KC_PGDN,KC_LEFT,KC_DOWN,KC_RGHT,KC_NO,                 A(KC_ESC), KC_LEFT, KC_DOWN, KC_RGHT,LCA(KC_TAB), RCS(KC_T),
-    KC_LSFT, C(KC_Z),KC_CUT,KC_COPY,KC_PASTE,  C(KC_Y),KC_NO, KC_NO,C(KC_X),C(KC_C),C(KC_V),KC_WWW_BACK, KC_WWW_FORWARD,G(KC_T),
+    KC_LSFT, C(KC_Z),KC_CUT,KC_COPY,KC_PASTE,  C(KC_Y),KC_NO, KC_NO,C(KC_X),C(KC_C),C(KC_V),KC_VOLU, KC_VOLD,G(KC_T),
   	      KC_TRNS, KC_TRNS, BW_CAP_L3, BW_CAP_L3,                      O_CAP_L1, I_CAP_L1, KC_TRNS,KC_TRNS
 ),
 /* ADJUST
  * ,-----------------------------------------.                    ,-----------------------------------------.
- * |      |      |      |      |      |      |                    |      |      |      |      |      |      |
+ * |      |      |      |      | BTN  |Reset |                    |Reset | BTN  |      |      |      |      |
+ *                               Swap  EEPROM                      EEPROM  Swap
  * |------+------+------+------+------+------|                    |------+------+------+------+------+------|
  * |      |      |      |      |      |      |                    |      |      |      |      |      |      |
+ *
  * |------+------+------+------+------+------|                    |------+------+------+------+------+------|
  * |      |      |      |      |      |      |-------.    ,-------|      |      |      |      |      |      |
+ *                                               -            +
  * |------+------+------+------+------+------|       |    |       |------+------+------+------+------+------|
  * |      |      |      |      |      |      |-------|    |-------|      |      |      |      |      |      |
+ *
  * `-----------------------------------------/       /     \      \-----------------------------------------'
- *                   |LOWER | LGUI | Space | /Alt   /       \BackSP\  | Enter| RGUI |RAISE |
+ *                   |      |      | Space | /Alt   /       \BackSP\  | Enter|      |      |
  *                   |      |      |      |/       /         \      \ |      |      |      |
  *                   `----------------------------'           '------''--------------------'
  */
   [3] = LAYOUT(
-    KC_NO,  KC_NO, KC_NO,   KC_NO,   B_SWAP,  QK_CLEAR_EEPROM,        EE_CLR,B_SWAP, KC_NO, KC_NO, KC_NO,  KC_NO,
-    KC_NO,  KC_NO, KC_BRIU, KC_VOLU, KC_MFFD, KC_NO,                  MT(KC_BSPC,KC_T), KC_F7, KC_F8, KC_F9, KC_F12, KC_NO,
-    KC_NO,  KC_NO, KC_BRID, KC_VOLD, KC_MPLY, KC_NO,                  KC_NO, KC_F4, KC_F5, KC_F6, KC_F11, KC_NO,
-    KC_NO,  KC_NO, KC_NO,   KC_MUTE, KC_MRWD, KC_TRNS,FX_SLV_M, FX_SLV_P, KC_NO, KC_F1, KC_F2, KC_F3, KC_F10, KC_NO,
+    KC_NO,  KC_NO, KC_NO,   KC_NO,   B_SWAP,  QK_CLEAR_EEPROM,        RCS(KC_TAB), RCTL(KC_TAB), RCTL(KC_W), G(KC_DOWN),G(KC_UP), A(KC_F4),
+    KC_NO,  KC_NO, KC_BRIU, KC_MS_BTN3, KC_MS_BTN2, KC_MS_BTN1,                  KC_MS_BTN1, KC_MS_BTN2,KC_MS_BTN3, RCS(KC_TAB), RCTL(KC_TAB), RCTL(KC_W),
+    KC_NO,  KC_NO, KC_RSFT, C(KC_X),C(KC_C),C(KC_V),                  KC_WWW_BACK, KC_WWW_FORWARD, KC_LSFT, KC_RGHT,LCA(KC_TAB), RCS(KC_T),
+    KC_NO,  KC_NO, KC_NO,   KC_MUTE, KC_MRWD, ML_AUTO,FX_SLV_M, FX_SLV_P,C(KC_X),C(KC_C),C(KC_V),KC_VOLU, KC_VOLD,G(KC_T),
               KC_TRNS, KC_TRNS, KC_TRNS, KC_TRNS,                  KC_TRNS, KC_TRNS, KC_TRNS,KC_TRNS
+/* RAISE
+ * ,-----------------------------------------.                    ,-----------------------------------------.
+ * |      |      |      |      |      |      |                    | Left | Right| Close| Min  | Max  |Close |
+ *                                                                  Tab     Tab    Tab   Wind   Wind   Wind
+ * |------+------+------+------+------+------|                    |------+------+------+------+------+------|
+ * |      | PgUp | Home |  Up  |      |      |                    |  MB1 |  MB2 |  MB3 |      |      |      |
+ *
+ * |------+------+------+------+------+------|                    |------+------+------+------+------+------|
+ * |      | PgDn | Left | Down |  Up  |      |-------.    ,-------| Back |Forth | Down |  Up  | Tab  | Undo |
+ *                                                                                              Wind    Tab
+ * |------+------+------+------+------+------|   [   |    |    ]  |------+------+------+------+------+------|
+ * |LShift| Undo | Cut  | Copy | Paste|      |-------|    |-------| Cut  | Copy | Paste|  Vol |  Vol |TskBar|
+ *                                                                                       Down    Up    BTNS
+ * `-----------------------------------------/       /     \      \-----------------------------------------'
+ *                   |      |      | Space| /  Alt  /       \ TRNS \  |Enter |      |      |
+ *                   |      |      |      |/   L3  /         \  L1  \ |      |      |      |
+ *                   `-------------------''-------'           '------''--------------------'
+ */
 )};
 
 /* Debugging Mouse Reports
@@ -473,7 +518,6 @@ layer_state_t layer_state_set_user(layer_state_t state) {
     }
 
     set_trackball_rgb_for_slave(sync_layer,2);
-
     return state;
 }
 
@@ -653,10 +697,10 @@ void handle_mouse_buttons(report_mouse_t* report, button_state_t* state) {
 
 // Mouse Mode Handling Syncing RGB
 // Activates mouse mode (white RGB) on movement, reverts to layer color after  timeout
-void handle_mouse_mode_rgb(report_mouse_t* left_report, report_mouse_t* right_report) {
+report_mouse_t handle_mouse_mode_rgb(report_mouse_t left_report, report_mouse_t right_report) { // Changed from void to report_mouse_t to see if it's more performant
 
-    int16_t combined_x = left_report->x + right_report->x;
-    int16_t combined_y = left_report->y + right_report->y;
+    int16_t combined_x = left_report.x + right_report.x;
+    int16_t combined_y = left_report.y + right_report.y;
     uint8_t m_m_layer, m_s_layer, l_layer, r_layer;
     // LEFT BUTTON
     switch (left_button.mode) {
@@ -697,13 +741,35 @@ void handle_mouse_mode_rgb(report_mouse_t* left_report, report_mouse_t* right_re
         uint8_t current_layer = caps.caps_lock ? 6 : get_highest_layer(layer_state);
         set_trackball_rgb_for_slave(current_layer,2);
     }
+    return pointing_device_combine_reports(left_report, right_report);
+}
+
+report_mouse_t auto_mouse_layer_handler(report_mouse_t mouse_report) {
+    if (mouse_report.x || mouse_report.y) {
+        // Mouse moved or button pressed, turn on mouse layer
+        if (!ATML_Active) {
+            layer_on(3);
+        }
+        ATML_Active = true;
+        ATML_Timer = timer_read();
+    } else if (timer_elapsed(ATML_Timer) > mb_click_time){
+        // No movement or button press, turn off mouse layer
+        ATML_Active = false;
+        layer_off(3);
+    }
+    return mouse_report;
 }
 
 report_mouse_t pointing_device_task_combined_user(report_mouse_t left_report, report_mouse_t right_report) {
 
     if (is_keyboard_master()) {
         // Handle button logic
-        handle_mouse_mode_rgb(&left_report, &right_report);
+        if (ATML) {
+            auto_mouse_layer_handler(left_report);
+            auto_mouse_layer_handler(right_report);
+        } else {
+            handle_mouse_mode_rgb(left_report, right_report);
+        }
         handle_mouse_buttons(&left_report,  &left_button);
         handle_mouse_buttons(&right_report, &right_button);
         // Apply continuous emulation depending on active mode
@@ -765,6 +831,11 @@ Linking: .build/lily58_rev1_via.elf                                             
  | lto-wrapper.exe: note: see the '-flto' option documentation for more information
 
 -- Log of changes: --
+
+
+-Changed 2 functions to report_mouse_t, as it seemed more performant than void. Specifically auto_mouse_layer_handler() & handle_mouse_mode_rgb() (I NEED TO UNDERSTAND WHY EVEN THOUGH THESE FUNCTIONS ONLY READ AND DON'T MANIPULATE)
+-Create my own auto mouse layer as it was easier
+-Added Automouse Layer 4 (Couldn't figure out how to make it work)
 
 -Fixed RGB syncing issues during EE_PROM reset when layer Swap Buttons are swapped by sending RPC coms to slave side during keyboard_post_init_user()
 -having issues with mouse move mode, and MB1 is pressed, then letter Y gets held. (possibly fixed it, by removing !mb_mouse_move in handle_mouse_mode_rgb())
