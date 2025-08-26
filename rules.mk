@@ -1,0 +1,13 @@
+MOUSEKEY_ENABLE     = yes     # Mouse keys
+VIA_ENABLE          = yes     # Enable VIA
+EXTRAKEY_ENABLE     = yes
+LTO_ENABLE          = yes
+CAPS_WORD_ENABLE    = yes
+SPLIT_KEYBOARD		= yes
+SPLIT_TRANSPORT		= yes
+POINTING_DEVICE_ENABLE = yes
+POINTING_DEVICE_DRIVER = pimoroni_trackball
+NO_DEBUG = yes
+NO_PRINT = yes
+# TAP_DANCE_ENABLE = yes
+# CONSOLE_ENABLE		= yes
