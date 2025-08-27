@@ -49,6 +49,11 @@ uint16_t    ATML_Timer;
 
 int         GROWTH_FACTOR = 8; // Moved here to retain value across key presses
 
+// Backspace repeating hold
+bool        BS_HOL;
+bool        BS_REL;
+uint16_t    BS_TIM;
+
 // Maybe bad idea, but lets try it
 // Turn off tap layer after timeout in matrix_scan_user()
 static void handle_tap_layer_timeout(void) {
@@ -112,19 +117,22 @@ bool layer_jump_handler(
 
 // Helper for tap-hold keys that send tap_key if tapped, else hold_key if held
 bool tap_hold_handler(
+    bool condition,
     uint16_t main_key,      // Tap
     uint16_t alt_key,       // Hold
     uint16_t *timer,        // Timer
+    bool mb,                // flag to remove MB timer
     keyrecord_t *record) {
 
     if (timer == NULL) {
+        // Multi purpose CXXXXXXCCCC
         // If no timer provided, just do simple tap/hold without timing
         // Resets Mouse Mode timer in handle_mouse_mode_rgb()
-        if (!mb_mouse_mode) {
+        if (condition) {
             record->event.pressed ? register_code(main_key) : unregister_code(main_key);
         } else {
-            mb_move_time = timer_read();
             record->event.pressed ? register_code(alt_key) : unregister_code(alt_key);
+            if (mb) {mb_move_time = timer_read();}
         }
         return false;
     } else {
@@ -161,7 +169,16 @@ enum custom_keycodes {
     MS_TYPE,                // 79
     R_RBRC,                 // 80
     L_LBRC,                 // 81
-    ML_AUTO                 // 82
+    ML_AUTO,                // 82
+    LC_LS,                  // 83
+    LS_LC,                  // 84
+    S1_ESC,                 // 85
+    S2_1,                   // 86
+    S3_2,                   // 87
+    S4_3,                   // 88
+    S5_4,                   // 89
+    S6_5,                   // 90
+    BSPC_H,                 // 91
 //    MS_DEBUG,               // 79
 };
 
@@ -206,22 +223,22 @@ bool process_record_user(uint16_t keycode, keyrecord_t *record) {
         // Group for mouse buttons with tap-hold behavior
         // _MB* are toggled by mb_mouse_mode to change to mouse buttons on mouse move
         case R_MB1:
-            return tap_hold_handler(KC_Y, KC_MS_BTN1, NULL, record);
+            return tap_hold_handler(!mb_mouse_mode, KC_Y, KC_MS_BTN1, NULL, true, record);
 
         case R_MB2:
-            return tap_hold_handler(KC_U, KC_MS_BTN2, NULL, record);
+            return tap_hold_handler(!mb_mouse_mode, KC_U, KC_MS_BTN2, NULL, true, record);
 
         case L_MB1:
-            return tap_hold_handler(KC_T, KC_MS_BTN1, NULL, record);
+            return tap_hold_handler(!mb_mouse_mode, KC_T, KC_MS_BTN1, NULL, true, record);
 
         case L_MB2:
-            return tap_hold_handler(KC_R, KC_MS_BTN2, NULL, record);
+            return tap_hold_handler(!mb_mouse_mode, KC_R, KC_MS_BTN2, NULL, true, record);
 
         case BW_ESC_GRV:
-            return tap_hold_handler(KC_ESC, KC_GRV, &esc_alt_timer, record);
+            return tap_hold_handler(NULL, KC_ESC, KC_GRV, &esc_alt_timer, NULL, record);
 
         case PLS_BSPC:
-            return tap_hold_handler(KC_BSPC, KC_EQL, &esc_alt_timer, record);
+            return tap_hold_handler(NULL, KC_BSPC, KC_EQL, &esc_alt_timer, NULL, record);
         // Toggle Button Swap for MB* keys
         case B_SWAP:
             if (record->event.pressed) {
@@ -252,7 +269,43 @@ bool process_record_user(uint16_t keycode, keyrecord_t *record) {
                 ATML = !ATML;
             }
             return false;
-        // Bracket keys with tap-hold layer switching
+
+        case LC_LS:
+            return tap_hold_handler(!BTN_SWAP, KC_LCTL, KC_LSFT, NULL, false, record);
+
+        case LS_LC:
+            return tap_hold_handler(!BTN_SWAP, KC_LSFT, KC_LCTL, NULL, false, record);
+
+        case S1_ESC:
+            return tap_hold_handler(!BTN_SWAP, KC_1, KC_ESC, NULL, false, record);
+
+        case S2_1:
+            return tap_hold_handler(!BTN_SWAP, KC_2, KC_1, NULL, false, record);
+
+        case S3_2:
+            return tap_hold_handler(!BTN_SWAP, KC_3, KC_2, NULL, false, record);
+
+        case S4_3:
+            return tap_hold_handler(!BTN_SWAP, KC_4, KC_3, NULL, false, record);
+
+        case S5_4:
+            return tap_hold_handler(!BTN_SWAP, KC_5, KC_4, NULL, false, record);
+
+        case S6_5:
+            return tap_hold_handler(!BTN_SWAP, KC_6, KC_5, NULL, false, record);
+
+        case BSPC_H:
+            if (record->event.pressed) {
+                BS_TIM = timer_read();
+                BS_HOL = true;
+            } else {
+                if (timer_elapsed(BS_TIM) < TAPPING_TERM) {
+                    tap_code(KC_EQL); // Tapped and released quickly: send '9'
+                    BS_HOL = false;
+                }
+                BS_REL = true;
+            }
+            return false; // Skip default handling
 /*
         case MS_DEBUG:
             if (record->event.pressed) {
@@ -269,30 +322,31 @@ bool process_record_user(uint16_t keycode, keyrecord_t *record) {
     return true;
 }
 
+
 const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
 /* QWERTY
  * ,-----------------------------------------.                    ,-----------------------------------------.
- * |   1  |   2  |   3  |   4  |   5  |  6   |                    |   7  |   8  |   9  |   0  |  ~   |   +  |
- *                                                                                                     BSPC
+ * |   1  |   2  |   3  |   4  |   5  |  6   |                    |   7  |   8  |   9  |   0  |  ~   | BSPC |
+ *   Esc      1      2      3      4     5                                                               +
  * |------+------+------+------+------+------|                    |------+------+------+------+------+------|
  * | Tab  |   Q  |   W  |   E  |   R  |   T  |                    |   Y  |   U  |   I  |   O  |   P  |  -   |
  *                                MB2    MB2                         MB1    MB2
  * |------+------+------+------+------+------|                    |------+------+------+------+------+------|
  * |LCTRL |   A  |   S  |   D  |   F  |   G  |-------.    ,-------|   H  |   J  |   K  |   L  |   ;  |  '   |
- *                                               [            ]
- * |------+------+------+------+------+------|   L1  |    |  L2   |------+------+------+------+------+------|
+ *  LShift                                       [            ]
+ * |-++++-+------+------+------+------+------|   L1  |    |  L2   |------+------+------+------+------+------|
  * |LShift|   Z  |   X  |   C  |   V  |   B  |-------|    |-------|   N  |   M  |   ,  |   .  |   /  |RShift|
- *                                                                                                     Enter
+ *  LCTRL                                                                                             Enter
  * `-----------------------------------------/       /    \       \-----------------------------------------'
- *                   | ALT  | LGUI | Space| / CAPS  /      \ Space \  | Space| ESC  | BSPC |
- *                   | DEL  |      |      |/L1 / L2/        \L2 / l1\ |      |  `   |      |
+ *                   | ALT  | LGUI | Space+ / CAPS  /      \ Space \  + Space| ESC  | BSPC |PLS_BSPC
+ *                   | DEL  |      |      +/L1 / L2/        \L2 / l1\ +      |  `   |      |
  *                   `-------------------''-------'          '------''---------------------'
  */
   [0] = LAYOUT(
-    KC_1,KC_2,KC_3,  KC_4,  KC_5,  KC_6,                       KC_7,  KC_8,  KC_9,   KC_0,  KC_MINS,   PLS_BSPC,
+    S1_ESC,S2_1,S3_2,  S4_3,  S5_4,  S6_5,                       KC_7,  KC_8,  KC_9,   KC_0,  KC_MINS,  BSPC_H ,
     KC_TAB,  KC_Q,  KC_W,  KC_E,  L_MB2,L_MB1,                       R_MB1, R_MB2, KC_I,   KC_O,  KC_P,   KC_BSLS,
-    KC_LCTL, KC_A,  KC_S,  KC_D,  KC_F,  KC_G,                       KC_H,  KC_J,  KC_K,   KC_L,  KC_SCLN,KC_QUOT,
-    KC_LSFT, KC_Z,  KC_X,  KC_C,  KC_V,  KC_B, L_LBRC,   R_RBRC, KC_N,  KC_M,  KC_COMM,KC_DOT,KC_SLSH,MT(MOD_RSFT,KC_ENT),
+    LC_LS, KC_A,  KC_S,  KC_D,  KC_F,  KC_G,                       KC_H,  KC_J,  KC_K,   KC_L,  KC_SCLN,KC_QUOT,
+    LS_LC, KC_Z,  KC_X,  KC_C,  KC_V,  KC_B, L_LBRC,   R_RBRC, KC_N,  KC_M,  KC_COMM,KC_DOT,KC_SLSH,MT(MOD_RSFT,KC_ENT),
        MT(MOD_LALT,KC_DEL), KC_LGUI, I_CAP_L1,O_CAP_L1,    O_SPC_L2, I_SPC_L2, BW_ESC_GRV, KC_BSPC
 ),
 /* LOWER
@@ -300,8 +354,8 @@ const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
  * |  F1  |  F2  |  F3  |  F4  |  F5  |  F6  |                    |  F7  |  F8  |  F9  | F10  | F11  | F12  |
  *
  * |------+------+------+------+------+------|                    |------+------+------+------+------+------|
- * |      |VDesk |VDesk |  Up  |  Vol |  Vol |                    |   /  |   7  |   8  |   9  |  -   |  +   |
- *          Left  Right          Down    Up                                                      _      =
+ * |      |VDesk |VDesk |  Up  |  Vol |  Vol |                    |   /  |   7  |   8  |   9  |   -  |   +  |
+ *          Left  Right          Down    Up                                                       _      =
  * |------+------+------+------+------+------|                    |------+------+------+------+------+------|
  * | Task | Redo | Left | Down |  Up  | Prev |-------.    ,-------|   *  |   4  |   5  |   6  |   +  |  F12 |
  *  Manage                                     Play         Mute
@@ -322,11 +376,11 @@ const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
 ),
 /* RAISE
  * ,-----------------------------------------.                    ,-----------------------------------------.
- * |      |      |      |      |      |      |                    | Play | Back |Forth | Min  | Max  |Close |]
- *                                                                  Pause                Wind   Wind   Wind
+ * |Reset |  BTN |      |      |      |      |                    | Play | Back |Forth | Min  | Max  | Close|
+ *  EEPROM  Swap                                                    Pause                Wind   Wind   Wind
  * |------+------+------+------+------+------|                    |------+------+------+------+------+------|
- * |      | PgUp | Home |  Up  |      |      |                    | Last | F12  |  Up  | Left | Right| Close|
- *                                                                  Wind                 Tab     Tab    Tab
+ * | Auto | PgUp | Home |  Up  |      |      |                    | Last | F12  |  Up  | Left | Right| Close|
+ *  MLayer                                                          Wind                 Tab     Tab    Tab
  * |------+------+------+------+------+------|                    |------+------+------+------+------+------|
  * |      | PgDn | Left | Down |  Up  |      |-------.    ,-------| Cycle| Left | Down |  Up  | Tab  | Undo |
  *                                                                 Window                       Wind    Tab
@@ -339,16 +393,16 @@ const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
  *                   `-------------------''-------'           '------''--------------------'
  */
   [2] = LAYOUT(
-    KC_NO,   KC_NO,  KC_NO,  KC_NO,  KC_NO,  KC_NO,                 KC_MPLY, KC_WWW_BACK, KC_WWW_FORWARD, G(KC_DOWN),G(KC_UP), A(KC_F4),
-    KC_NO,   KC_PGUP,KC_HOME,KC_UP,  KC_END, KC_NO,                 A(KC_TAB), KC_F11,KC_UP, RCS(KC_TAB), RCTL(KC_TAB), RCTL(KC_W),
+    QK_CLEAR_EEPROM,   B_SWAP,  KC_NO,  KC_NO,  KC_NO,  KC_NO,        KC_MPLY, KC_WWW_BACK, KC_WWW_FORWARD, G(KC_DOWN),G(KC_UP), A(KC_F4),
+    ML_AUTO,   KC_PGUP,KC_HOME,KC_UP,  KC_END, KC_NO,                 A(KC_TAB), KC_F11,KC_UP, RCS(KC_TAB), RCTL(KC_TAB), RCTL(KC_W),
     KC_NO,   KC_PGDN,KC_LEFT,KC_DOWN,KC_RGHT,KC_NO,                 A(KC_ESC), KC_LEFT, KC_DOWN, KC_RGHT,LCA(KC_TAB), RCS(KC_T),
     KC_LSFT, C(KC_Z),KC_CUT,KC_COPY,KC_PASTE,  C(KC_Y),KC_NO, KC_NO,C(KC_X),C(KC_C),C(KC_V),KC_VOLU, KC_VOLD,G(KC_T),
   	      KC_TRNS, KC_TRNS, BW_CAP_L3, BW_CAP_L3,                      O_CAP_L1, I_CAP_L1, KC_TRNS,KC_TRNS
 ),
 /* ADJUST
  * ,-----------------------------------------.                    ,-----------------------------------------.
- * |      |      |      |      | BTN  |Reset |                    |Reset | BTN  |      |      |      |      |
- *                               Swap  EEPROM                      EEPROM  Swap
+ * |      |      |      |      | BTN  |Reset |                    |      |      |      |      |      |      |
+ *                               Swap  EEPROM
  * |------+------+------+------+------+------|                    |------+------+------+------+------+------|
  * |      |      |      |      |      |      |                    |      |      |      |      |      |      |
  *
@@ -364,9 +418,9 @@ const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
  *                   `----------------------------'           '------''--------------------'
  */
   [3] = LAYOUT(
-    KC_NO,  KC_NO, KC_NO,   KC_NO,   B_SWAP,  QK_CLEAR_EEPROM,        RCS(KC_TAB), RCTL(KC_TAB), RCTL(KC_W), G(KC_DOWN),G(KC_UP), A(KC_F4),
-    KC_NO,  KC_NO, KC_BRIU, KC_MS_BTN3, KC_MS_BTN2, KC_MS_BTN1,                  KC_MS_BTN1, KC_MS_BTN2,KC_MS_BTN3, RCS(KC_TAB), RCTL(KC_TAB), RCTL(KC_W),
-    KC_NO,  KC_NO, KC_RSFT, C(KC_X),C(KC_C),C(KC_V),                  KC_WWW_BACK, KC_WWW_FORWARD, KC_LSFT, KC_RGHT,LCA(KC_TAB), RCS(KC_T),
+    QK_CLEAR_EEPROM,  B_SWAP, KC_NO,   KC_NO,   KC_NO,  KC_NO,        RCS(KC_TAB), RCTL(KC_TAB), RCTL(KC_W), G(KC_DOWN),G(KC_UP), A(KC_F4),
+    ML_AUTO,  KC_NO, KC_BRIU, KC_MS_BTN3, KC_MS_BTN2, KC_MS_BTN1,                  KC_MS_BTN1, KC_MS_BTN2,KC_MS_BTN3, KC_NO, KC_NO, KC_NO,
+    KC_NO,  KC_NO, KC_RSFT, C(KC_X),C(KC_C),C(KC_V),                  KC_WWW_BACK, RCS(KC_T), KC_LSFT, KC_RGHT,LCA(KC_TAB), KC_NO,
     KC_NO,  KC_NO, KC_NO,   KC_MUTE, KC_MRWD, ML_AUTO,FX_SLV_M, FX_SLV_P,C(KC_X),C(KC_C),C(KC_V),KC_VOLU, KC_VOLD,G(KC_T),
               KC_TRNS, KC_TRNS, KC_TRNS, KC_TRNS,                  KC_TRNS, KC_TRNS, KC_TRNS,KC_TRNS
 /* RAISE
@@ -377,8 +431,8 @@ const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
  * |      | PgUp | Home |  Up  |      |      |                    |  MB1 |  MB2 |  MB3 |      |      |      |
  *
  * |------+------+------+------+------+------|                    |------+------+------+------+------+------|
- * |      | PgDn | Left | Down |  Up  |      |-------.    ,-------| Back |Forth | Down |  Up  | Tab  | Undo |
- *                                                                                              Wind    Tab
+ * |      | PgDn | Left | Down |  Up  |      |-------.    ,-------| Back | Undo | Down |  Up  | Tab  |      |
+ *                                                                          Tab                 Wind
  * |------+------+------+------+------+------|   [   |    |    ]  |------+------+------+------+------+------|
  * |LShift| Undo | Cut  | Copy | Paste|      |-------|    |-------| Cut  | Copy | Paste|  Vol |  Vol |TskBar|
  *                                                                                       Down    Up    BTNS
@@ -417,32 +471,33 @@ void set_trackball_rgb_for_layer(uint8_t layer) {
     switch (layer) {
         case 0:
             if (BTN_SWAP)
-                pimoroni_trackball_set_rgbw(255, 255, 255, 0); // White (base layer, swapped)
+                pimoroni_trackball_set_rgbw(255, 255, 255, 0);  // White (base layer, swapped)
             else
-                pimoroni_trackball_set_rgbw(0, 0, 255, 0);     // Blue (base layer, normal)
+                pimoroni_trackball_set_rgbw(0, 0, 255, 0);      // Blue (base layer, normal)
             break;
         case 1:
-            pimoroni_trackball_set_rgbw(192, 0, 64, 0);    // Red
+            pimoroni_trackball_set_rgbw(192, 0, 64, 0);         // Red
             break;
         case 2:
-            pimoroni_trackball_set_rgbw(0, 192, 128, 0);   // Green
+            pimoroni_trackball_set_rgbw(0, 192, 128, 0);        // Green
             break;
         case 3:
-            pimoroni_trackball_set_rgbw(153, 113, 0, 0);   // Yellow
+            pimoroni_trackball_set_rgbw(153, 113, 0, 0);        // Yellow
             break;
         case 4:
             if (BTN_SWAP)
-                pimoroni_trackball_set_rgbw(0, 0, 255, 0);     // Blue (mouse layer, swapped)
+                pimoroni_trackball_set_rgbw(0, 0, 255, 0);      // Blue (mouse layer, swapped)
             else
-                pimoroni_trackball_set_rgbw(255, 255, 255, 0); // White (mouse layer, normal)
+                pimoroni_trackball_set_rgbw(255, 255, 255, 0);  // White (mouse layer, normal)
             break;
         case 5:
-            pimoroni_trackball_set_rgbw(0, 0, 0, 0);       // Off
+            pimoroni_trackball_set_rgbw(0, 0, 0, 0);            // Off
             break;
         case 6:
-            pimoroni_trackball_set_rgbw(255, 105, 180, 100);       // Pink (Hot Pink RGB Approximate)
+            pimoroni_trackball_set_rgbw(138, 43, 226, 0);       // Pink (Hot Pink RGB Approximate)
             break;
 
+            // Hot Pink (255, 105, 180)
             // Orange	(255, 165, 0)
             // Indigo	(75, 0, 130)
             // Violet	(138, 43, 226)
@@ -464,7 +519,12 @@ void set_trackball_rgb_for_slave(uint8_t layer, uint8_t both) {
 
 // RPC handler for slave devices to sync RGB based on the active layer.
 // Called when the master sends a layer change RPC event.
-void user_sync_slave_handler(uint8_t in_buflen, const void *in_data, uint8_t out_buflen, void *out_data) {
+void user_sync_slave_handler(
+    uint8_t in_buflen,
+    const void *in_data,
+    uint8_t out_buflen,
+    void *out_data) {
+
     if (in_buflen < 2) return;
     const uint8_t *bytes = (const uint8_t *)in_data;
     uint8_t type = bytes[0];
@@ -476,12 +536,12 @@ void user_sync_slave_handler(uint8_t in_buflen, const void *in_data, uint8_t out
             BTN_SWAP = (bool)bytes[1];
             set_trackball_rgb_for_layer(get_highest_layer(layer_state));
             break;
-    }
     /*
     Requires #define SPLIT_TRANSACTION_IDS_USER USER_SYNC in config.h
     Also #include <split_util.h>, #include <transactions.h> in keymap.c
     And Reistered in keyboard_p
     */
+    }
 }
 
 // Register the RPC handler for USER_RGB_LAYER_SYNC events.
@@ -523,9 +583,18 @@ layer_state_t layer_state_set_user(layer_state_t state) {
 
 // Use matrix_scan_user with caution & sparingly: runs frequently
 void matrix_scan_user(void) {
-    if (TAP_LYR_PENDING && timer_elapsed(TAP_LYR_RELT) > 200) {
+    // Scan for dual-role key pressed/held
+    if ((BS_HOL) && (timer_elapsed(BS_TIM) > TAPPING_TERM)) { // Not ideal, so use custom global state instead
+        register_code(KC_BSPC);
+        BS_HOL = false;
+    }
+    if (BS_REL) {
+        unregister_code(KC_BSPC);
+        BS_REL = false;
+    }
 
-    handle_tap_layer_timeout();
+    if (TAP_LYR_PENDING && timer_elapsed(TAP_LYR_RELT) > 200) {
+        handle_tap_layer_timeout();
     }
 }
 
@@ -645,18 +714,18 @@ typedef enum {
     MODE_PENDING, // waiting to see if next tap is coming
     MODE_ARROW,
     MODE_SCROLL
-} emulation_mode_t;
+} emu_mode_t;
 
 typedef struct {
-    uint16_t last_press_time;
-    bool button_was_pressed;
-    emulation_mode_t mode;
-} button_state_t;
+    uint16_t        last_press_time;
+    bool            button_was_pressed;
+    emu_mode_t      mode;
+} btn_state_t;
 
-static button_state_t left_button  = {0, false, MODE_OFF};
-static button_state_t right_button = {0, false, MODE_OFF};
+static btn_state_t left_button  = {0, false, MODE_OFF};
+static btn_state_t right_button = {0, false, MODE_OFF};
 
-void handle_mouse_buttons(report_mouse_t* report, button_state_t* state) {
+void handle_mouse_buttons(report_mouse_t* report, btn_state_t* state) {
     bool pressed = (report->buttons & (1 << 0)) != 0;
 
     if (pressed && !state->button_was_pressed) {
@@ -697,7 +766,8 @@ void handle_mouse_buttons(report_mouse_t* report, button_state_t* state) {
 
 // Mouse Mode Handling Syncing RGB
 // Activates mouse mode (white RGB) on movement, reverts to layer color after  timeout
-report_mouse_t handle_mouse_mode_rgb(report_mouse_t left_report, report_mouse_t right_report) { // Changed from void to report_mouse_t to see if it's more performant
+report_mouse_t handle_mouse_mode_rgb(report_mouse_t left_report, report_mouse_t right_report) {
+    // Changed from void to report_mouse_t to see if it's more performant
 
     int16_t combined_x = left_report.x + right_report.x;
     int16_t combined_y = left_report.y + right_report.y;
@@ -807,9 +877,6 @@ report_mouse_t pointing_device_task_combined_user(report_mouse_t left_report, re
 }
 
 
-
-
-
 /*
 
 -- Todo List --
@@ -821,18 +888,20 @@ report_mouse_t pointing_device_task_combined_user(report_mouse_t left_report, re
 -Refine keycode placements for my usage style [Needs to be refined slowly over time]
 -Add middle mouse button
 -Add incrementer with modifer/shifting to change what to increment
+-Add more dual purpose keys to layer 2
 
-
---Received Warnings on Compile after implementing Caps Lock Stuff
-
-
+---------Received Warnings on Compile after implementing Caps Lock Stuff
 Linking: .build/lily58_rev1_via.elf                                                                 [WARNINGS] |
  | lto-wrapper.exe: warning: using serial compilation of 2 LTRANS jobs
  | lto-wrapper.exe: note: see the '-flto' option documentation for more information
 
 -- Log of changes: --
 
+8/27/2025
+Added BSPC_H to repeat on hold. Using matrix_scan_user(). Not sure if it'll have a negative impact or not. But it works for Tap, Hold & Repeat.
 
+
+8/26/2025
 -Changed 2 functions to report_mouse_t, as it seemed more performant than void. Specifically auto_mouse_layer_handler() & handle_mouse_mode_rgb() (I NEED TO UNDERSTAND WHY EVEN THOUGH THESE FUNCTIONS ONLY READ AND DON'T MANIPULATE)
 -Create my own auto mouse layer as it was easier
 -Added Automouse Layer 4 (Couldn't figure out how to make it work)
