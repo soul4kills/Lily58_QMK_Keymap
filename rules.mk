@@ -17,9 +17,11 @@ MOUSEKEY_ENABLE     = yes     # Mouse keys
 VIA_ENABLE          = yes     # Enable VIA
 LTO_ENABLE          = yes
 NKRO_ENABLE 		= yes
-SPLIT_KEYBOARD		= yes
-SPLIT_TRANSPORT		= yes
 SERIAL_DRIVER 		= vendor
+
+# Not really needed for RPC communications, still works without these
+# SPLIT_KEYBOARD		= yes
+# SPLIT_TRANSPORT		= yes
 
 # Disable things we don't support that take up unnecessary space.
 OLED_ENABLE			= no

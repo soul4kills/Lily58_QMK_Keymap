@@ -48,8 +48,10 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 // Define a custom transaction ID for RGB layer sync
 #define SPLIT_TRANSACTION_IDS_USER USER_SYNC
-// Added for led_update_user to work on slave side to handle caps lock layer RGB change, GIVES COMPILE WARNINGS, I think
-#define SPLIT_LED_STATE_ENABLE
+// Added for led_update_user to work on slave side to handle caps lock layer RGB change, GIVES COMPILE WARNINGS, Removed this and caps lock syncing still works
+// #define SPLIT_LED_STATE_ENABLE
+
+#define DYNAMIC_KEYMAP_LAYER_COUNT 5
 
 //----
 

@@ -24,21 +24,20 @@
 #include <transactions.h>
 
 // Required Debugging & Printing
-//#include <print.h>
-
+// #include <print.h>
+// bool debug_ms_reports = false;       // Debug mouse reports
 
 // Example build commands:
 // make lily58/rev1:via:flash -e POINTING_DEVICE=trackball_trackball -e POINTING_DEVICE_POSITION=left -j8
 // make lily58/rev1:via:flash -e POINTING_DEVICE=trackball_trackball -e POINTING_DEVICE_POSITION=right -j8
-
-// bool debug_ms_reports = false;     // Debug mouse reports
 
 uint8_t     TLAY_LAY;
 uint16_t    TLAY_REL =      0;
 bool        TLAY_PEN =      false;
 
 bool        BTN_SWAP =      false;      // If true, swap the behavior of O_ & I_ keycodes
-int         GROWTH_FACTOR = 8;          // Moved here to retain value across key presses
+float       GROWTH_FACTOR = 8;          // Moved here to retain value across key presses
+uint8_t     RGB_CURRENT;
 
 bool        RGB_MS_MODE =   false;      // RGB Emulation Mode Arrow/Scroll
 uint16_t    RGB_MS_MOVE =   0;          // Holds Last Move Time
@@ -67,12 +66,12 @@ typedef struct {
     emu_mode_t      mode;
 } btn_state_t;
 
-static btn_state_t left_button  = {0, false, MODE_OFF};
-static btn_state_t right_button = {0, false, MODE_OFF};
+static btn_state_t  left_button  = {0, false, MODE_OFF};
+static btn_state_t  right_button = {0, false, MODE_OFF};
 
 // Maybe bad idea, but lets try it
 // Turn off tap layer after timeout in matrix_scan_user()
-void layer_jump_handler_timeout(void) {
+void layer_jump_timeout(void) {
     layer_off(1);
     layer_off(2);
     layer_off(3);
@@ -117,7 +116,7 @@ bool layer_tap_handler(
     uint8_t         layer,      // Hold Layer
     uint16_t*       timer,      // Timer
     uint16_t        tap_time,   // Tap Time
-    keyrecord_t *record) {
+    keyrecord_t*    record) {
 
     if (record->event.pressed) {
         *timer = timer_read();
@@ -138,7 +137,7 @@ bool tap_hold_handler(
     uint16_t*       timer,      // Timer
     bool            condition,  // Bool Variable
     bool            mb,         // flag to remove MouseButton timer
-    keyrecord_t *record) {
+    keyrecord_t*    record) {
 
     if (timer == NULL) {
         // Multi purpose
@@ -195,7 +194,7 @@ enum custom_keycodes {
     S5_4,                   // 89
     S6_5,                   // 90
     BSPC_H,                 // 91
-    SEL_H,                  // 92
+    SEL_H                  // 92
 //    MS_DEBUG,               // 79
 };
 
@@ -220,10 +219,10 @@ bool process_record_user(uint16_t keycode, keyrecord_t *record) {
             return layer_jump_handler(KC_SPC, 2, &ri1_timer, !BTN_SWAP, record);
 
         case BW_CAP_L3:
-            return layer_tap_handler(KC_CAPS, 3, &le2_timer, BW_TAP_TIME, record);
+            return layer_tap_handler(KC_CAPS, 4, &le2_timer, BW_TAP_TIME, record);
 
         case BW_TAB_L3:
-            return layer_tap_handler(KC_TAB, 3, &ri2_timer, BW_TAP_TIME, record);
+            return layer_tap_handler(KC_TAB, 4, &ri2_timer, BW_TAP_TIME, record);
 
         case FX_SLV_M: // Reduce growth factor
             if (record->event.pressed) {
@@ -259,7 +258,7 @@ bool process_record_user(uint16_t keycode, keyrecord_t *record) {
         case B_SWAP:
             if (record->event.pressed) {
                 BTN_SWAP = !BTN_SWAP;
-                layer_jump_handler_timeout();
+                layer_jump_timeout();
                 if (is_keyboard_master()) {
                     uint8_t msg[2] = {2, BTN_SWAP ? 1 : 0};
                     transaction_rpc_send(USER_SYNC, sizeof(msg), msg);
@@ -280,6 +279,7 @@ bool process_record_user(uint16_t keycode, keyrecord_t *record) {
             if (record->event.pressed) {
                 ATML = !ATML;
             }
+            layer_jump_timeout();
             return false;
         // Swap Keys
         case LC_LS:
@@ -351,7 +351,6 @@ bool process_record_user(uint16_t keycode, keyrecord_t *record) {
     return true;
 }
 
-
 const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
 /* QWERTY
  * ,-----------------------------------------.                    ,-----------------------------------------.
@@ -359,7 +358,7 @@ const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
  *   Esc      1      2      3      4     5                                                               +
  * |------+------+------+------+------+------|                    |------+------+------+------+------+------|
  * | Tab  |   Q  |   W  |   E  |   R  |   T  |                    |   Y  |   U  |   I  |   O  |   P  |  -   |
- *                                MB2    MB2                         MB1    MB2
+ *                                MB2    MB1                         MB1    MB2
  * |------+------+------+------+------+------|                    |------+------+------+------+------+------|
  * |LCTRL |   A  |   S  |   D  |   F  |   G  |-------.    ,-------|   H  |   J  |   K  |   L  |   ;  |  '   |
  *  LShift                                       [            ]
@@ -377,14 +376,14 @@ const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
     LC_LS, KC_A,  KC_S,  KC_D,  KC_F,  KC_G,                      KC_H ,  KC_J,  KC_K,   KC_L,  KC_SCLN,KC_QUOT,
     LS_LC, KC_Z,  KC_X,  KC_C,  KC_V,  KC_B, L_LBRC,   R_RBRC, KC_N,  KC_M,  KC_COMM,KC_DOT,KC_SLSH,MT(MOD_RSFT,KC_ENT),
        MT(MOD_LALT,KC_DEL), KC_LGUI, I_CAP_L1,O_CAP_L1,    O_SPC_L2, I_SPC_L2, BW_ESC_GRV, KC_BSPC
-),
+  ),
 /* LOWER
  * ,-----------------------------------------.                    ,-----------------------------------------.
  * |  F1  |  F2  |  F3  |  F4  |  F5  |  F6  |                    |  F7  |  F8  |  F9  | F10  | F11  | F12  |
  *
  * |------+------+------+------+------+------|                    |------+------+------+------+------+------|
- * |      |VDesk |VDesk |  Up  |  Vol |  Vol |                    |   /  |   7  |   8  |   9  |   -  |   +  |
- *          Left  Right          Down    Up                                                       _      =
+ * | BTN  |VDesk |VDesk |  Up  |  Vol |  Vol |                    |   /  |   7  |   8  |   9  |   -  |   +  |
+ *   Swap   Left  Right          Down    Up                                                       _      =
  * |------+------+------+------+------+------|                    |------+------+------+------+------+------|
  * | Task | Redo | Left | Down |  Up  | Prev |-------.    ,-------|   *  |   4  |   5  |   6  |   +  |  F12 |
  *  Manage                                     Play         Mute
@@ -398,18 +397,18 @@ const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
  */
   [1] = LAYOUT(
     KC_F1,  KC_F2,  KC_F3,  KC_F4,  KC_F5,  KC_F6,                        KC_F7,  KC_F8, KC_F9, KC_F10, KC_F11, KC_F12,
-    KC_NO,C(G(KC_LEFT)),C(G(KC_RGHT)),KC_UP,KC_VOLD,KC_VOLU,               KC_PSLS,KC_P7, KC_P8, KC_P9, KC_MINS, KC_EQL,
+    B_SWAP,C(G(KC_LEFT)),C(G(KC_RGHT)),KC_UP,KC_VOLD,KC_VOLU,               KC_PSLS,KC_P7, KC_P8, KC_P9, KC_MINS, KC_EQL,
     C(S(KC_ESC)),  C(KC_Y),KC_LEFT, KC_DOWN,KC_RGHT,KC_MPRV,              KC_ASTR,KC_P4, KC_P5, KC_P6, KC_PPLS, KC_F12,
     KC_LSFT,C(KC_Z),C(KC_X),C(KC_C),C(KC_V),KC_MNXT,KC_MPLY,         KC_MUTE, KC_NO,  KC_P1, KC_P2, KC_P3, KC_PDOT, KC_RSFT,
               KC_TRNS, KC_TRNS, I_SPC_L2, O_SPC_L2,                    BW_TAB_L3, BW_TAB_L3, KC_P0,KC_TRNS
-),
+  ),
 /* RAISE
  * ,-----------------------------------------.                    ,-----------------------------------------.
- * |Reset |  BTN |      |      |      |      |                    | Play | Back |Forth | Min  | Max  | Close|
- *  EEPROM  Swap                                                    Pause                Wind   Wind   Wind
- * |------+------+------+------+------+------|                    |------+------+------+------+------+------|
- * | Auto | PgUp | Home |  Up  |      |      |                    | Last | F12  |  Up  | Left | Right| Close|
- *  MLayer                                                          Wind                 Tab     Tab    Tab
+ * |Reset | Auto |      |      |      |      |                    | Play | Back |Forth | Min  | Max  | Close|
+ *  EEPROM MLayer                                                   Pause                Wind   Wind   Wind
+ * |------+------+------+------+------+------|                    |------+------+------+-----       -+------+------|
+ * | BTN  | PgUp | Home |  Up  |      |      |                    | Last | F12  |  Up  | Left | Right| Close|
+ *   Swap                                                           Wind                 Tab     Tab    Tab
  * |------+------+------+------+------+------|                    |------+------+------+------+------+------|
  * |      | PgDn | Left | Down |  Up  |      |-------.    ,-------| Cycle| Left | Down |  Up  | Tab  | Undo |
  *                                                                 Window                       Wind    Tab
@@ -422,19 +421,19 @@ const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
  *                   `-------------------''-------'           '------''--------------------'
  */
   [2] = LAYOUT(
-    QK_CLEAR_EEPROM,   B_SWAP,  KC_NO,  KC_NO,  KC_NO,  KC_NO,        KC_MPLY, KC_WWW_BACK, KC_WWW_FORWARD, G(KC_DOWN),G(KC_UP), A(KC_F4),
-    ML_AUTO,   KC_PGUP,KC_HOME,KC_UP,  KC_END, KC_NO,                 A(KC_TAB), KC_F11,KC_UP, RCS(KC_TAB), RCTL(KC_TAB), RCTL(KC_W),
+    QK_CLEAR_EEPROM,   ML_AUTO,  KC_NO,  KC_NO,  KC_NO,  KC_NO,        KC_MPLY, KC_WWW_BACK, KC_WWW_FORWARD, G(KC_DOWN),G(KC_UP), A(KC_F4),
+    B_SWAP,   KC_PGUP,KC_HOME,KC_UP,  KC_END, KC_NO,                 A(KC_TAB), KC_F11,KC_UP, RCS(KC_TAB), RCTL(KC_TAB), RCTL(KC_W),
     KC_NO,   KC_PGDN,KC_LEFT,KC_DOWN,KC_RGHT,KC_NO,                 A(KC_ESC), KC_LEFT, KC_DOWN, KC_RGHT,LCA(KC_TAB), RCS(KC_T),
     KC_LSFT, C(KC_Z),KC_CUT,KC_COPY,KC_PASTE,  C(KC_Y),KC_NO, KC_NO,C(KC_X),C(KC_C),C(KC_V),KC_VOLU, KC_VOLD,G(KC_T),
   	      KC_TRNS, KC_TRNS, BW_CAP_L3, BW_CAP_L3,                      O_CAP_L1, I_CAP_L1, KC_TRNS,KC_TRNS
-),
+  ),
 /* ADJUST
  * ,-----------------------------------------.                    ,-----------------------------------------.
- * |Reset |  BTN |      |      |      |      |                    |      |      |      |      |      |      |
- *  EEPROM  Swap
+ * |Reset | Auto |      |      |      |      |                    |      |      |      |      |      |      |
+ *  EEPROM MLayer
  * |------+------+------+------+------+------|                    |------+------+------+------+------+------|
- * | Auto |      |      |      |      |      |                    |      |      |      |      |      |      |
- *  MLayer
+ * | BTN  |      |      |      |      |      |                    |      |      |      |      |      |      |
+ *   Swap
  * |------+------+------+------+------+------|                    |------+------+------+------+------+------|
  * |      |      |      |      |      |      |-------.    ,-------|      |      |      |      |      |      |
  *                                               -            +
@@ -446,12 +445,13 @@ const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
  *                   |      |      |      |/       /         \      \ |      |      |      |
  *                   `----------------------------'           '------''--------------------'
  */
-  [3] = LAYOUT(
-    QK_CLEAR_EEPROM,  B_SWAP, KC_NO,   KC_NO,   KC_NO,  KC_NO,        RCS(KC_TAB), RCTL(KC_TAB), RCTL(KC_W), G(KC_DOWN),G(KC_UP), A(KC_F4),
-    ML_AUTO,  KC_NO, KC_BRIU, KC_MS_BTN3, KC_MS_BTN2, KC_MS_BTN1,                  KC_MS_BTN1, KC_MS_BTN2,KC_MS_BTN3, KC_NO, KC_NO, KC_NO,
+  [3] = LAYOUT( // Auto Moues Layer
+    QK_CLEAR_EEPROM,  ML_AUTO, KC_NO,   KC_NO,   KC_NO,  KC_NO,        RCS(KC_TAB), RCTL(KC_TAB), RCTL(KC_W), G(KC_DOWN),G(KC_UP), A(KC_F4),
+    B_SWAP,  KC_NO, KC_BRIU, KC_MS_BTN3, KC_MS_BTN2, KC_MS_BTN1,                  KC_MS_BTN1, KC_MS_BTN2,KC_MS_BTN3, KC_NO, KC_NO, KC_NO,
     KC_NO,  KC_NO, KC_RSFT, C(KC_X),C(KC_C),C(KC_V),                  KC_WWW_BACK, RCS(KC_T), KC_LSFT, KC_RGHT,LCA(KC_TAB), KC_NO,
     KC_NO,  KC_NO, KC_NO,   KC_MUTE, KC_MRWD, ML_AUTO,FX_SLV_M, FX_SLV_P,C(KC_X),C(KC_C),C(KC_V),KC_VOLU, KC_VOLD,G(KC_T),
               KC_TRNS, KC_TRNS, KC_TRNS, KC_TRNS,                  KC_TRNS, KC_TRNS, KC_TRNS,KC_TRNS
+  ),
 /* RAISE
  * ,-----------------------------------------.                    ,-----------------------------------------.
  * |      |      |      |      |      |      |                    | Left | Right| Close| Min  | Max  |Close |
@@ -470,7 +470,14 @@ const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
  *                   |      |      |      |/   L3  /         \  L1  \ |      |      |      |
  *                   `-------------------''-------'           '------''--------------------'
  */
-)};
+  [4] = LAYOUT( // Settings Layer
+    QK_CLEAR_EEPROM,  ML_AUTO, KC_NO,   KC_NO,   KC_NO,  KC_NO,        RCS(KC_TAB), RCTL(KC_TAB), RCTL(KC_W), G(KC_DOWN),G(KC_UP), A(KC_F4),
+    B_SWAP,  KC_NO, KC_BRIU, KC_MS_BTN3, KC_MS_BTN2, KC_MS_BTN1,                  KC_MS_BTN1, KC_MS_BTN2,KC_MS_BTN3, KC_NO, KC_NO, KC_NO,
+    KC_NO,  KC_NO, KC_RSFT, C(KC_X),C(KC_C),C(KC_V),                  KC_WWW_BACK, RCS(KC_T), KC_LSFT, KC_RGHT,LCA(KC_TAB), KC_NO,
+    KC_NO,  KC_NO, KC_NO,   KC_MUTE, KC_MRWD, ML_AUTO,FX_SLV_M, FX_SLV_P,C(KC_X),C(KC_C),C(KC_V),KC_VOLU, KC_VOLD,G(KC_T),
+              KC_TRNS, KC_TRNS, KC_TRNS, KC_TRNS,                  KC_TRNS, KC_TRNS, KC_TRNS,KC_TRNS
+  )
+};
 
 /* Debugging Mouse Reports
 // Pass the mouse reports to this function to print debug info if debug is enabled
@@ -499,31 +506,44 @@ void debug_mouse_reports(report_mouse_t left_report, report_mouse_t right_report
 void set_trackball_rgb_for_layer(uint8_t layer) {
     switch (layer) {
         case 0:
-            if (BTN_SWAP)
+            if (BTN_SWAP) {
                 pimoroni_trackball_set_rgbw(255, 255, 255, 0);  // White (base layer, swapped)
-            else
+            } else {
                 pimoroni_trackball_set_rgbw(0, 0, 255, 0);      // Blue (base layer, normal)
+            }
+            RGB_CURRENT = 0;
             break;
         case 1:
             pimoroni_trackball_set_rgbw(192, 0, 64, 0);         // Red
+            RGB_CURRENT = 1;
             break;
         case 2:
             pimoroni_trackball_set_rgbw(0, 192, 128, 0);        // Green
+            RGB_CURRENT = 2;
             break;
         case 3:
             pimoroni_trackball_set_rgbw(153, 113, 0, 0);        // Yellow
+            RGB_CURRENT = 3;
             break;
         case 4:
-            if (BTN_SWAP)
+            if (BTN_SWAP) {
                 pimoroni_trackball_set_rgbw(0, 0, 255, 0);      // Blue (mouse layer, swapped)
-            else
+            } else {
                 pimoroni_trackball_set_rgbw(255, 255, 255, 0);  // White (mouse layer, normal)
+            }
+            RGB_CURRENT = 4;
             break;
         case 5:
             pimoroni_trackball_set_rgbw(0, 0, 0, 0);            // Off
+            RGB_CURRENT = 5;
             break;
         case 6:
-            pimoroni_trackball_set_rgbw(138, 43, 226, 0);       // Pink (Hot Pink RGB Approximate)
+            pimoroni_trackball_set_rgbw(138, 43, 226, 0);       // Pink (Hot Pink)
+            RGB_CURRENT = 6;
+            break;
+        default:
+            // Optionally handle out-of-range layers
+            RGB_CURRENT = 255; // Invalid index or none
             break;
 
             // Hot Pink (255, 105, 180)
@@ -550,10 +570,10 @@ void set_trackball_rgb_for_slave(uint8_t layer, uint8_t both) {
 // RPC handler for slave devices to sync RGB based on the active layer.
 // Called when the master sends a layer change RPC event.
 void user_sync_slave_handler(
-    uint8_t     in_buflen,
-    const void* in_data,
-    uint8_t     out_buflen,
-    void*       out_data) {
+    uint8_t         in_buflen,
+    const void*     in_data,
+    uint8_t         out_buflen,
+    void*           out_data) {
 
     if (in_buflen < 2) return;
     const uint8_t *bytes = (const uint8_t *)in_data;
@@ -569,15 +589,14 @@ void user_sync_slave_handler(
 
     // Requires #define SPLIT_TRANSACTION_IDS_USER USER_SYNC in config.h
     // Also #include <split_util.h>, #include <transactions.h> in keymap.c
-    //And Reistered in keyboard_p
     }
 }
 
 // Register the RPC handler for USER_RGB_LAYER_SYNC events.
 // This function runs once after keyboard initialization.
 void keyboard_post_init_user(void) {
-    debug_enable = false;  // Disable debug console on startup
-    debug_matrix = false;  // Optionally disable matrix debug on startup
+//    debug_enable = false;  // Disable debug console on startup
+//    debug_matrix = false;  // Optionally disable matrix debug on startup
     // Optional: adjust CPI per side if needed
     // pointing_device_set_cpi_on_side(true, 8000);   // Left side: low CPI for scrolling
     // pointing_device_set_cpi_on_side(false, 16000); // Right side: high CPI for standard usage
@@ -597,8 +616,8 @@ void keyboard_post_init_user(void) {
 // Handle layer state changes.
 // Updates the trackball RGB color and sends updated layer info to slave devices.
 layer_state_t layer_state_set_user(layer_state_t state) {
-    uint8_t layer = get_highest_layer(state);
     led_t caps = host_keyboard_led_state();
+    uint8_t layer = get_highest_layer(state);
     uint8_t sync_layer = layer;
     // When Caps Lock is active on base layer, use layer 5 (Clear) to indicate Caps Lock RGB
     // But on other layers, Caps Lock does not change the color
@@ -638,11 +657,11 @@ void matrix_scan_user(void) {
         }
 
         if (TLAY_PEN && timer_elapsed(TLAY_REL) > 200) {
-            layer_jump_handler_timeout();
+            layer_jump_timeout();
         }
     }
 }
-/*
+
 // LED Indicator for Caps Lock
 bool led_update_user(led_t led_state) {
     uint8_t layer;
@@ -655,7 +674,7 @@ bool led_update_user(led_t led_state) {
     set_trackball_rgb_for_slave(layer,2);
     return false; // Prevent default handler if applicable
 
-    //Requires #define SPLIT_LED_STATE_ENABLE in config.h
+    // Requires #define SPLIT_LED_STATE_ENABLE in config.h, OR maybe not, still works without it.
 }
 
 // LED Indicator for Caps Word
@@ -668,7 +687,7 @@ void caps_word_set_user(bool active) {
     }
     set_trackball_rgb_for_slave(layer,2);
 }
-*/
+
 // Arrow key emulation
 // Arrow key simulation constants
 #define     ARROW_MOMENTUM 0.99   // Smoothing factor
@@ -730,15 +749,19 @@ void handle_scroll_emulation(report_mouse_t* mouse_report) {
 #define     MOMENTUM 0.075f //Smooths out movement, lower = precision
 #define     MIN_SCALE 0.0001f
 #define     MAX_SCALE 64.0f
-//#define GROWTH_FACTOR 8.0f - moved to global variable for runtime adjustment
+// #define GROWTH_FACTOR 8.0f - moved to global variable for runtime adjustment
+
 void pimoroni_adaptive_scaling(report_mouse_t* mouse_report) {
 
     static float accumulated_factor = MIN_SCALE;
+
     // Vector length of raw motion (x and y)
     float mouse_length = sqrtf((float)(mouse_report->x * mouse_report->x) + (float)(mouse_report->y * mouse_report->y));
 
     // Compute instantaneous scaling factor and update exponential moving average
     float factor = GROWTH_FACTOR * mouse_length + MIN_SCALE;
+
+    // Update exponential moving average of scaling factor
     accumulated_factor = accumulated_factor * (1.0f - MOMENTUM) + factor * MOMENTUM;
 
     if (accumulated_factor > MAX_SCALE) {
@@ -752,47 +775,52 @@ void pimoroni_adaptive_scaling(report_mouse_t* mouse_report) {
     }
 }
 
-void handle_mouse_buttons(report_mouse_t* report, btn_state_t* state) {
-    bool pressed = (report->buttons & (1 << 0)) != 0;
+inline btn_state_t handle_mouse_buttons(report_mouse_t report, btn_state_t state) {
+    bool pressed = (report.buttons & (1 << 0)) != 0;
 
-    if (pressed && !state->button_was_pressed) {
+    if (pressed && !state.button_was_pressed) {
         uint16_t now = timer_read();
 
-        if (state->mode == MODE_OFF) {
+        if (state.mode == MODE_OFF) {
             // First tap from OFF → enter pending state
-            state->mode = MODE_PENDING;
-            state->last_press_time = now;
+            state.mode = MODE_PENDING;
+            state.last_press_time = now;
         }
-        else if (state->mode == MODE_PENDING) {
-            if (timer_elapsed(state->last_press_time) < 400) {
-                state->mode = MODE_ARROW;
-                handle_arrow_emulation(report);
+        else if (state.mode == MODE_PENDING) {
+            if (timer_elapsed(state.last_press_time) < 400) {
+                state.mode = MODE_ARROW;
+                //handle_arrow_emulation(&report);
                 set_trackball_rgb_for_slave(1,2);
             } else {
                 // Too slow, treat as new first press
-                state->last_press_time = now;
+                state.last_press_time = now;
             }
         }
         else {
             // Arrow or Scroll is already active → turn off
-            state->mode = MODE_OFF;
+            state.mode = MODE_OFF;
             set_trackball_rgb_for_slave(0,2);
         }
     }
+
     // If we're pending and time ran out, finalize as Scroll
-    if (state->mode == MODE_PENDING &&
-        timer_elapsed(state->last_press_time) >= 400) {
-            // Single tap quick → Scroll
-            state->mode = MODE_SCROLL;
-            handle_scroll_emulation(report);
-            set_trackball_rgb_for_slave(2,2);
+    if (state.mode == MODE_PENDING && timer_elapsed(state.last_press_time) >= 400) {
+        // Single tap quick → Scroll
+        state.mode = MODE_SCROLL;
+        //handle_scroll_emulation(&report);
+        set_trackball_rgb_for_slave(2,2);
     }
 
-    state->button_was_pressed = pressed;
+    state.button_was_pressed = pressed;
+    return state;
+
+    // Usage: Passed by value, state is returned to caller.
+    // left_button  = handle_mouse_buttons(left_report,  left_button);
+    // right_button = handle_mouse_buttons(right_report, right_button);
 }
 
 // Mouse Mode Handling Syncing RGB
-// Activates mouse mode (white RGB) on movement, reverts to layer color after  timeout
+// Activates mouse mode (white RGB) on movement, reverts to layer color after timeout
 report_mouse_t handle_mouse_mode_rgb(report_mouse_t left_report, report_mouse_t right_report) {
     // Changed from void to report_mouse_t to see if it's more performant
 
@@ -823,8 +851,9 @@ report_mouse_t handle_mouse_mode_rgb(report_mouse_t left_report, report_mouse_t 
     // Move Layer
     if ((combined_x != 0 || combined_y != 0)) {
         // Activate mouse mode (white RGB)
-        if (!RGB_MS_MODE) {
+        if (!RGB_MS_MODE || RGB_CURRENT == 0) {
             // This causes some short lived RGB syncing issues but worth it to not spam RPC coms
+            // May have fixed short lived syncing issue by adding RGB_CURRENT == 0
             set_trackball_rgb_for_layer(m_m_layer);
             set_trackball_rgb_for_slave(m_s_layer, 0);
         }
@@ -846,13 +875,17 @@ report_mouse_t auto_mouse_layer_handler(report_mouse_t mouse_report) {
         // Mouse moved or button pressed, turn on mouse layer
         if (!ATML_Active) {
             layer_on(3);
+            ATML_Active = true;
         }
-        ATML_Active = true;
-        ATML_Timer = timer_read();
-    } else if (timer_elapsed(ATML_Timer) > RGB_MS_TIME){
-        // No movement or button press, turn off mouse layer
-        ATML_Active = false;
-        layer_off(3);
+        // Only reset timer once on first movement
+        if (timer_elapsed(ATML_Timer) > 50) {
+            ATML_Timer = timer_read();
+        }
+    } else if (timer_elapsed(ATML_Timer) > RGB_MS_TIME) {
+        if (ATML_Active) {
+            layer_off(3);
+            ATML_Active = false;
+        }
     }
     return mouse_report;
 }
@@ -861,14 +894,15 @@ report_mouse_t pointing_device_task_combined_user(report_mouse_t left_report, re
 
     if (is_keyboard_master()) {
         // Handle button logic
+        left_button  = handle_mouse_buttons(left_report,  left_button);
+        right_button = handle_mouse_buttons(right_report, right_button);
+        // Handle Mousing Mode or Auto Mouse Layer
         if (ATML) {
             auto_mouse_layer_handler(left_report);
             auto_mouse_layer_handler(right_report);
         } else {
             handle_mouse_mode_rgb(left_report, right_report);
         }
-        handle_mouse_buttons(&left_report,  &left_button);
-        handle_mouse_buttons(&right_report, &right_button);
         // Apply continuous emulation depending on active mode
         switch (left_button.mode) {
             case MODE_ARROW:  handle_arrow_emulation(&left_report);  break;
@@ -880,17 +914,18 @@ report_mouse_t pointing_device_task_combined_user(report_mouse_t left_report, re
             case MODE_SCROLL: handle_scroll_emulation(&right_report); break;
             default: break;
         }
-
         // --- Layer overrides ---
-        if (layer_state_is(1) && !layer_state_is(3)) {
-            handle_arrow_emulation(&left_report);
-            handle_arrow_emulation(&right_report);
+        switch (get_highest_layer(layer_state)) {
+            case 1:
+                handle_arrow_emulation(&left_report);
+                handle_arrow_emulation(&right_report);
+                break;
+            case 2:
+                handle_scroll_emulation(&left_report);
+                handle_scroll_emulation(&right_report);
+                break;
+            default: break;
         }
-        if (layer_state_is(2) && !layer_state_is(3)) {
-            handle_scroll_emulation(&left_report);
-            handle_scroll_emulation(&right_report);
-        }
-
         // --- Scaling ---
         pimoroni_adaptive_scaling(&left_report);
         pimoroni_adaptive_scaling(&right_report);
@@ -903,15 +938,13 @@ report_mouse_t pointing_device_task_combined_user(report_mouse_t left_report, re
     return pointing_device_combine_reports(left_report, right_report);
 }
 
-
 /*
 
 -- Todo List --
 
--Implement Built in auto mouse LAYER switching
 -Add better Tap-Hold handling
 -Consolidate idank user profile to my own to handle file settings more explicitly
--Does "static void layer_jump_handler_timeout(void)" need to be static?
+-Does "static void layer_jump_timeout(void)" need to be static?
 -Refine keycode placements for my usage style [Needs to be refined slowly over time]
 -Add middle mouse button
 -Add incrementer with modifer-shifting to change what to increment
@@ -926,6 +959,9 @@ report_mouse_t pointing_device_task_combined_user(report_mouse_t left_report, re
 
 8.27.2025
 Added BSPC_H to repeat on hold. Using matrix_scan_user(). Not sure if it'll have a negative impact or not. But it works for Tap, Hold & Repeat.
+Optimized the code a bit to only call functions when they are needed to reduce overhead.
+Changed some if statements to switch statements.
+-Implement Built in auto mouse LAYER switching (Doe), Auto Mouse Layer may be causing timing issues, missed inputs, delayed inputs. Added more conditionals to stop what may have been a loop.
 
 
 8.26.2025
