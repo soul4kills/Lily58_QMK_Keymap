@@ -775,7 +775,7 @@ void pimoroni_adaptive_scaling(report_mouse_t* mouse_report) {
     }
 }
 
-inline btn_state_t handle_mouse_buttons(report_mouse_t report, btn_state_t state) {
+btn_state_t handle_mouse_buttons(report_mouse_t report, btn_state_t state) {
     bool pressed = (report.buttons & (1 << 0)) != 0;
 
     if (pressed && !state.button_was_pressed) {
