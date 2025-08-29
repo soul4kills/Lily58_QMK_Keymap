@@ -386,8 +386,7 @@ const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
                                        |            |            |            |/             /               \            \ |            |            |            |
 */                               MT(MOD_LALT,KC_DEL),    KC_LGUI,    I_CAP_L1,      O_CAP_L1,                     O_SPC_L2,     I_SPC_L2,  BW_ESC_GRV,      KC_BSPC
 /*                                     `------------+------------+------------+-------------'                 '------------''------------+------------+------------'
-*/
-),
+*/),
 [1] = LAYOUT(
 /* LOWER
    ,------------+------------+------------+------------+------------+------------.                                      ,------------+------------+------------+------------+------------+------------.
@@ -416,14 +415,13 @@ const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
                                        |            |            |            |/             /               \            \ |            |            |            |
 */ 	                                         KC_TRNS,     KC_TRNS,    I_SPC_L2,     O_SPC_L2,                    BW_TAB_L3,     BW_TAB_L3,       KC_P0,     KC_TRNS
 /*                                     `------------+------------+------------+-------------'                 '------------''------------+------------+------------'
- */
-),
+*/),
 [2] = LAYOUT(
 /* UPPER
    ,------------+------------+------------+------------+------------+------------.                                      ,------------+------------+------------+------------+------------+------------.
    |   Reset    |    Auto    |            |            |            |            |                                      |    Back    |   Forth    |    Play    |     Min    |    Max     |   Close    |
       EEPROM      Mouse Layer                                                                                                                         Pause        Window       Window      Window
-*/QK_CLEAR_EEPROM,    ML_AUTO,       KC_NO,       KC_NO,       KC_NO,       KC_NO,                                        KC_WWW_BACK,KC_WWW_FORWARD,   KC_MPLY,  G(KC_DOWN),    G(KC_UP),    A(KC_F4),
+*/        EE_CLR,     ML_AUTO,       KC_NO,       KC_NO,       KC_NO,       KC_NO,                                        KC_WWW_BACK,KC_WWW_FORWARD,   KC_MPLY,  G(KC_DOWN),    G(KC_UP),    A(KC_F4),
 /* |            |            |            |            |            |            |                                      |            |            |            |            |            |            |
    |------------+------------+------------+------------+------------+------------|                                      |------------+------------+------------+------------+------------+------------|
        Button                                   Up                                                                          Last          F12           Up          Left         Right        Close
@@ -446,8 +444,7 @@ const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
                                        |            |            |            |/             /               \            \ |            |            |            |
 */ 	                                         KC_TRNS,     KC_TRNS,   BW_CAP_L3,    BW_CAP_L3,                     O_CAP_L1,      I_CAP_L1,     KC_TRNS,     KC_TRNS
 /*                                     `------------+------------+------------+-------------'                 '------------''------------+------------+------------'
- */
-),
+*/),
 [3] = LAYOUT(
 /* AUTO MOUSE MOVE LAYER                                           * Need to work on dual function keys for this layer * RCS(KC_TAB)   RCTL(KC_TAB)
    ,------------+------------+------------+------------+------------+------------.                                      ,------------+------------+------------+------------+------------+------------.
@@ -476,19 +473,18 @@ const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
                                        |            |            |            |/             /               \            \ |            |            |            |
 */ 	                                         KC_TRNS,     KC_TRNS,     KC_TRNS,      KC_TRNS,                      KC_TRNS,       KC_TRNS,     KC_TRNS,     KC_TRNS
 /*                                     `------------+------------+------------+-------------'                 '------------''------------+------------+------------'
- */
-),
+*/),
 [4] = LAYOUT(
 /* SETTINGS LAYER                                               * Need to add variable modifiers to change what to increment on hold *
    ,------------+------------+------------+------------+------------+------------.                                      ,------------+------------+------------+------------+------------+------------.
-   |   Reset    |    Auto    |            |            |            |            |                                      |            |            |            |            |            |            |
-      EEPROM      Mouse Layer
+   |   Reset    |    Auto    |            |            |            |ATML_TIMEOUT|    ARROW_MOMENTUM                    |            |            |            |            |            |            |
+      EEPROM      Mouse Layer                                                         ARROW_STEP
 */QK_CLEAR_EEPROM,    ML_AUTO,       KC_NO,       KC_NO,       KC_NO,       KC_NO,                                            KC_TRNS,     KC_TRNS,     KC_TRNS,     KC_TRNS,     KC_TRNS,     KC_TRNS,
-/* |            |            |            |            |            |            |                                      |            |            |            |            |            |            |
-   |------------+------------+------------+------------+------------+------------|                                      |------------+------------+------------+------------+------------+------------|
-       Button
-        Swap
-*/        B_SWAP,     KC_TRNS,     KC_TRNS,     KC_TRNS,     KC_TRNS,     KC_TRNS,                                            KC_TRNS,     KC_TRNS,     KC_TRNS,     KC_TRNS,     KC_TRNS,     KC_TRNS,
+/* |            |            |            |            |            |            |    SCROLL_DIVISOR_H                  |            |            |            |            |            |            |
+   |------------+------------+------------+------------+------------+------------|    SCROLL_DIVISOR_H                  |------------+------------+------------+------------+------------+------------|
+       Button                                                       RGB_MS_TIMEOUT       MOMENTUM
+        Swap                                                                             MIN_SCALE
+*/        B_SWAP,     KC_TRNS,     KC_TRNS,     KC_TRNS,     KC_TRNS,     KC_TRNS,       MAX_SCALE                            KC_TRNS,     KC_TRNS,     KC_TRNS,     KC_TRNS,     KC_TRNS,     KC_TRNS,
 /* |            |            |            |            |            |            |                                      |            |            |            |            |            |            |
    |------------+------------+------------+------------+------------+------------|                                      |------------+------------+------------+------------+------------+------------|
    |            |            |            |            |            |            |                                      |            |            |            |            |            |            |
@@ -506,8 +502,7 @@ const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
                                        |            |            |            |/             /               \            \ |            |            |            |
 */ 	                                         KC_TRNS,     KC_TRNS,     KC_TRNS,      KC_TRNS,                      KC_TRNS,       KC_TRNS,     KC_TRNS,     KC_TRNS
 /*                                     `------------+------------+------------+-------------'                 '------------''------------+------------+------------'
- */
-)
+*/)
 };
 
 /* Debugging Mouse Reports
