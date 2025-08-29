@@ -56,14 +56,14 @@ uint8_t     KEY_MATRIX;
 #define     RGB_MS_TIMEOUT 2000     // Mouse Mode Timeout
 
 // Structs for handle_mouse_buttons()
-typedef enum {
+typedef enum mouse_button_states {
     MODE_OFF,
     MODE_ARROW,
     MODE_SCROLL,
     MODE_PENDING // waiting to see if next tap is coming
 } emu_mode_t;
 
-typedef struct {
+typedef struct mouse_button {
     uint16_t        last_press_time;
     bool            button_was_pressed;
     emu_mode_t      mode;
@@ -71,7 +71,6 @@ typedef struct {
 
 static btn_state_t  left_button  = {0, false, MODE_OFF};
 static btn_state_t  right_button = {0, false, MODE_OFF};
-
 // Maybe bad idea, but lets try it
 // Turn off tap layer after timeout in matrix_scan_user()
 static void layer_jump_timeout(void) {
@@ -98,17 +97,17 @@ static bool layer_jump_handler(        // Tap into another layer using the same 
             TLAY_LAY = layer;
             TLAY_PEN = false;
         } else {
-            register_code(KC_SPC);
+            register_code16(KC_SPC);
         }
     } else {
         if (condition) {
             TLAY_REL = timer_read();
             TLAY_PEN = true;
             if (timer_elapsed(*timer) < BW_TAP_TIME) {
-                tap_code(tap_key);
+                tap_code16(tap_key);
             }
         } else {
-            unregister_code(KC_SPC);
+            unregister_code16(KC_SPC);
         }
     }
     return false;
@@ -128,11 +127,13 @@ static bool layer_tap_handler(
     } else {
         layer_off(layer);
         if (timer_elapsed(*timer) < tap_time) {
-            tap_code(tap_key);
+            tap_code16(tap_key);
         }
     }
     return false;
 }
+
+
 
 // Helper for tap-hold keys that send tap_key if tapped, else hold_key if held
 static bool tap_hold_handler(
@@ -148,9 +149,9 @@ static bool tap_hold_handler(
         // If no timer provided, just do simple tap/hold without timing
         // Resets Mouse Mode timer in handle_mouse_mode_rgb()
         if (condition) {
-            record->event.pressed ? register_code(tap_key) : unregister_code(tap_key);
+            record->event.pressed ? register_code16(tap_key) : unregister_code16(tap_key);
         } else {
-            record->event.pressed ? register_code(alt_key) : unregister_code(alt_key);
+            record->event.pressed ? register_code16(alt_key) : unregister_code16(alt_key);
             if (mb && timer_elapsed(RGB_MS_MOVE) > TIMER_LIMITER) {
                 RGB_MS_MOVE = timer_read();
             }
@@ -161,9 +162,9 @@ static bool tap_hold_handler(
             *timer = timer_read();
         } else {
             if (timer_elapsed(*timer) < BW_TAP_TIME) {
-                tap_code(tap_key);
+                tap_code16(tap_key);
             } else {
-                tap_code(alt_key);
+                tap_code16(alt_key);
             }
         }
     }
@@ -199,7 +200,13 @@ enum custom_keycodes {
     S5_4,                   // 89
     S6_5,                   // 90
     BSPC_H,                 // 91
-    SEL_H                  // 92
+    SEL_H,                  // 92
+    LTB_BK,
+    RTB_FW,
+    CW_LW,
+    NX_PR,
+    CT_UN,
+    DL_DR
 //    MS_DEBUG,               // 79
 };
 
@@ -208,6 +215,9 @@ bool process_record_user(uint16_t keycode, keyrecord_t *record) {
     static uint16_t le2_timer;
     static uint16_t ri1_timer;
     static uint16_t ri2_timer;
+    static uint16_t rd1_timer;
+    static uint16_t ld1_timer;
+
 
     switch (keycode) {
 
@@ -340,6 +350,25 @@ bool process_record_user(uint16_t keycode, keyrecord_t *record) {
                 right_button.mode = MODE_OFF;
             }
             return false; // Skip default handling
+
+        case LTB_BK: // LEFT TAB & BACKWARD
+            return tap_hold_handler(RCS(KC_TAB), KC_WWW_BACK, &rd1_timer, NULL, NULL, record);
+
+        case RTB_FW: // RIGHT TAB & FORWARD
+            return tap_hold_handler(RCTL(KC_TAB), KC_WWW_FORWARD, &rd1_timer, NULL, NULL, record);
+
+        case CT_UN: // CLOSE TAB & UNDO CLOSE TAB
+            return tap_hold_handler(RCTL(KC_W), RCS(KC_T), &rd1_timer, NULL, NULL, record);
+
+        case CW_LW: // CYCLE WINDOWS & LAST WINDOW
+            return tap_hold_handler(A(KC_ESC), A(KC_TAB), &rd1_timer, NULL, NULL, record);
+
+        case NX_PR: // NEXT & PREVIOUS
+            return tap_hold_handler(KC_MNXT, KC_MPRV, &ld1_timer, NULL, NULL, record);
+
+        case DL_DR: // VIRTUAL DESKOP LEFT & VIRTUAL DESKTOP RIGHT
+            return tap_hold_handler(C(G(KC_LEFT)), C(G(KC_RGHT)), &ld1_timer, NULL, NULL, record);
+
 /*
         case MS_DEBUG:
             if (record->event.pressed) {
@@ -370,20 +399,20 @@ const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
 */        KC_TAB,        KC_Q,        KC_W,        KC_E,       L_MB2,       L_MB1,                                              R_MB1,       R_MB2,        KC_I,        KC_O,        KC_P,     KC_BSLS,
 /* |            |            |            |            |     MB2    |     MB1    |                                      |     MB1    |     MB2    |            |            |            |            |
    |------------+------------+------------+------------+------------+------------|                                      |------------+------------+------------+------------+------------+------------|
-        lCTRL         A            S            D            F            G                                                    H           J            K             L            ;           '
+        lShift        A            S            D            F            G                                                    H           J            K             L            ;           '
 
-*/         LC_LS,        KC_A,        KC_S,        KC_D,        KC_F,        KC_G,                                              KC_H ,        KC_J,        KC_K,        KC_L,     KC_SCLN,     KC_QUOT,
-/* |   lShift   |            |            |            |            |            |-------------.          ,-------------|            |            |            |            |            |            |
+*/       KC_LSFT,        KC_A,        KC_S,        KC_D,        KC_F,        KC_G,                                              KC_H ,        KC_J,        KC_K,        KC_L,     KC_SCLN,     KC_QUOT,
+/* |            |            |            |            |            |            |-------------.          ,-------------|            |            |            |            |            |            |
    |------------+------------+------------+------------+------------+------------|     [       |          |      ]      |------------+------------+------------+------------+------------+------------|
-       LShift         Z            X            C            V            B                                                    N           M            ,             .            /         RShift
-                                                                                       L1                       l2
-*/         LS_LC,        KC_Z,        KC_X,        KC_C,        KC_V,        KC_B,        L_LBRC,                 R_RBRC,        KC_N,        KC_M,     KC_COMM,      KC_DOT,     KC_SLSH,MT(MOD_RSFT,KC_ENT),
-/* |    LCtrl   |            |            |            |            |            |-------------|          |-------------|            |            |            |            |            |    Enter   |
+        LCtrl         Z            X            C            V            B                                                    N           M            ,             .            /         RShift
+                                                                                       L1                       L2
+*/       KC_LCTL,        KC_Z,        KC_X,        KC_C,        KC_V,        KC_B,        L_LBRC,                 R_RBRC,        KC_N,        KC_M,     KC_COMM,      KC_DOT,     KC_SLSH,MT(MOD_RSFT,KC_ENT),
+/* |            |            |            |            |            |            |-------------|          |-------------|            |            |            |            |            |    Enter   |
    `------------+------------+---------+--+---------+--+---------+--+------------|             /           \            \------------+---+--------+---+--------+---+--------+------------+------------'
-                                            LAlt         LGUI        Space            Caps                       Space           Space         ESC       Backspace
-                                       |            |            |            | /   L1 / L2   /             \   L2 / L1  \  |            |            |            |
+          LC_LS                             LGUI         LAlt         Caps           Space                      Space           Space      Backspace       ESC
+          LS_LC                        |            |    Del     |   L1 / L2  | /             /             \            \  |  L2 / L1   |            |            |
                                        |            |            |            |/             /               \            \ |            |            |            |
-*/                               MT(MOD_LALT,KC_DEL),    KC_LGUI,    I_CAP_L1,      O_CAP_L1,                     O_SPC_L2,     I_SPC_L2,  BW_ESC_GRV,      KC_BSPC
+*/                                      KC_LGUI,MT(MOD_LALT,KC_DEL),  I_CAP_L1,     O_CAP_L1,                      O_SPC_L2,     I_SPC_L2,     KC_BSPC,   BW_ESC_GRV
 /*                                     `------------+------------+------------+-------------'                 '------------''------------+------------+------------'
 */),
 [1] = LAYOUT(
@@ -394,23 +423,23 @@ const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
 */         KC_F1,       KC_F2,       KC_F3,       KC_F4,       KC_F5,       KC_F6,                                              KC_F7,       KC_F8,       KC_F9,      KC_F10,      KC_F11,      KC_F12,
 /* |            |            |            |            |            |            |                                      |            |            |            |            |            |            |
    |------------+------------+------------+------------+------------+------------|                                      |------------+------------+------------+------------+------------+------------|
-       Button       Desktop      Desktop        Up         Volume       Volume                                                 /           7            8            9             -           +
-        Swap         Left         Right                     Down          Up                                                                                                       _           =
-*/       B_SWAP,C(G(KC_LEFT)),C(G(KC_RGHT)),      KC_UP,     KC_VOLD,     KC_VOLU,                                            KC_PSLS,       KC_P7,       KC_P8,       KC_P9,     KC_MINS,      KC_EQL,
-/* |            |            |            |            |            |            |                                      |            |            |            |            |            |            |
+       Button    Virt Desktop                   Up         Volume       Volume                                                 /           7            8            9             -           +
+        Swap         Left                                   Down          Up                                                                                                       _           =
+*/       B_SWAP,        DL_DR,       KC_NO,      KC_UP,     KC_VOLD,     KC_VOLU,                                            KC_PSLS,       KC_P7,       KC_P8,       KC_P9,     KC_MINS,      KC_EQL,
+/* |            | VDesk Left |            |            |            |            |                                      |            |            |            |            |            |            |
    |------------+------------+------------+------------+------------+------------|                                      |------------+------------+------------+------------+------------+------------|
-        Task         Redo         Left         Down         Right       Prev                                                   *           4            5            6             +
-       Manager
-*/  C(S(KC_ESC)),     C(KC_Y),     KC_LEFT,     KC_DOWN,     KC_RGHT,     KC_MPRV,                                            KC_ASTR,       KC_P4,       KC_P5,       KC_P6,     KC_PPLS,       KC_NO,
+       LShift        Redo         Left         Down         Right                                                              *           4            5            6             +
+
+*/       KC_LSFT,     C(KC_Y),     KC_LEFT,     KC_DOWN,     KC_RGHT,       KC_NO,                                            KC_ASTR,       KC_P4,       KC_P5,       KC_P6,     KC_PPLS,       KC_NO,
 /* |            |            |            |            |            |            |-------------.          ,-------------|            |            |            |            |            |            |
    |------------+------------+------------+------------+------------+------------|     Play    |          |     Mute    |------------+------------+------------+------------+------------+------------|
-       LShift        Undo         Cut          Copy         Paste       Next                                                               1            2            3             .         RShift
+        LCtrl        Undo         Cut          Copy         Paste        Next                                                              1            2            3             .         RShift
 
-*/       KC_LSFT,     C(KC_Z),     C(KC_X),     C(KC_C),     C(KC_V),     KC_MNXT,      KC_MPLY,                 KC_MUTE,       KC_NO,       KC_P1,       KC_P2,       KC_P3,     KC_PDOT,     KC_RSFT,
-/* |            |            |            |            |            |            |-------------|          |-------------|            |            |            |            |            |            |
+*/       KC_LCTL,     C(KC_Z),     C(KC_X),     C(KC_C),     C(KC_V),       NX_PR,      KC_MPLY,                 KC_MUTE,       KC_NO,       KC_P1,       KC_P2,       KC_P3,     KC_PDOT,     KC_RSFT,
+/* |            |            |            |            |            |  Previous  |-------------|          |-------------|            |            |            |            |            |            |
    `------------+------------+---------+--+---------+--+---------+--+------------|             /           \            \------------+---+--------+---+--------+---+--------+------------+------------'
                                                                       Space          Space                       Tab             Tab            0
-                                       |            |            |            | /     L2      /             \     L3     \  |   Space    |            |            |
+                                       |            |            |     L2     | /             /             \            \  |     L3     |            |            |
                                        |            |            |            |/             /               \            \ |            |            |            |
 */ 	                                         KC_TRNS,     KC_TRNS,    I_SPC_L2,     O_SPC_L2,                    BW_TAB_L3,     BW_TAB_L3,       KC_P0,     KC_TRNS
 /*                                     `------------+------------+------------+-------------'                 '------------''------------+------------+------------'
@@ -418,53 +447,53 @@ const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
 [2] = LAYOUT(
 /* UPPER
    ,------------+------------+------------+------------+------------+------------.                                      ,------------+------------+------------+------------+------------+------------.
-   |   Reset    |    Auto    |            |            |            |            |                                      |    Back    |   Forth    |    Play    |     Min    |    Max     |   Close    |
-      EEPROM      Mouse Layer                                                                                                                         Pause        Window       Window      Window
-*/        EE_CLR,     ML_AUTO,       KC_NO,       KC_NO,       KC_NO,       KC_NO,                                        KC_WWW_BACK,KC_WWW_FORWARD,   KC_MPLY,  G(KC_DOWN),    G(KC_UP),    A(KC_F4),
+   |   Reset    |    Auto    |            |            |            |            |                                      |    Left    |    Right   |    Close   |     Min    |    Max     |   Close    |
+      EEPROM      Mouse Layer                                                                                                Tab           Tab          Tab         Window      Window       Window
+*/        EE_CLR,     ML_AUTO,       KC_NO,       KC_NO,       KC_NO,       KC_NO,                                             LTB_BK,      RTB_FW,       CT_UN,  G(KC_DOWN),    G(KC_UP),    A(KC_F4),
+/* |            |            |            |            |            |            |                                      |    Back    |   Forth    |  Undo Tab  |            |            |            |
+   |------------+------------+------------+------------+------------+------------|                                      |------------+------------+------------+------------+------------+------------|
+       Button                                   Up                                                                                                      Up                                    F11
+        Swap
+*/        B_SWAP,     KC_TRNS,     KC_TRNS,     KC_TRNS,     KC_TRNS,     KC_TRNS,                                              KC_NO,      KC_NO,        KC_UP,       KC_NO,       KC_NO,      KC_F11,
 /* |            |            |            |            |            |            |                                      |            |            |            |            |            |            |
    |------------+------------+------------+------------+------------+------------|                                      |------------+------------+------------+------------+------------+------------|
-       Button                                   Up                                                                          Last          F12           Up          Left         Right        Close
-        Swap                                                                                                                Window                                  Tab           Tab          Tab
-*/        B_SWAP,     KC_TRNS,     KC_TRNS,     KC_TRNS,     KC_TRNS,     KC_TRNS,                                          A(KC_TAB),      KC_F11,       KC_UP, RCS(KC_TAB),RCTL(KC_TAB),  RCTL(KC_W),
-/* |            |            |            |            |            |            |                                      |            |            |            |            |            |            |
-   |------------+------------+------------+------------+------------+------------|                                      |------------+------------+------------+------------+------------+------------|
-                      Redo        Left        Down          Right                                                           Cycle         Left         Down         Right         Tab         Undo
-                                                                                                                            Window                                              Window        Tab
-*/         KC_NO,     KC_TRNS,     KC_TRNS,     KC_TRNS,     KC_TRNS,     KC_TRNS,                                          A(KC_ESC),     KC_LEFT,     KC_DOWN,     KC_RGHT, LCA(KC_TAB),   RCS(KC_T),
-/* |            |            |            |            |            |            |-------------.          ,-------------|            |            |            |            |            |            |
+       LShift         Redo        Left        Down          Right                                                            Cycle        Left         Down         Right         Tab
+                                                                                                                            Window                                               Window
+*/       KC_TRNS,     KC_TRNS,     KC_TRNS,     KC_TRNS,     KC_TRNS,     KC_TRNS,                                              CW_LW,     KC_LEFT,     KC_DOWN,     KC_RGHT, LCA(KC_TAB),       KC_NO,
+/* |            |            |            |            |            |            |-------------.          ,-------------| Last Window|            |            |            |            |            |
    |------------+------------+------------+------------+------------+------------|             |          |             |------------+------------+------------+------------+------------+------------|
-       LShift        Undo         Cut          Copy         Paste                                                            Undo         Redo         Paste       Volume       Volume       Taskbar
+        LCtrl        Undo         Cut          Copy         Paste                                                            Undo         Redo         Paste       Volume       Volume       Taskbar
                                                                                                                                                                     Down          Up         Buttons
-*/       KC_LSFT,     KC_TRNS,     KC_TRNS,     KC_TRNS,     KC_TRNS,     C(KC_Y),        KC_NO,                   KC_NO,     C(KC_Z),     C(KC_Y),     C(KC_V),     KC_VOLU,     KC_VOLD,     G(KC_T),
+*/       KC_TRNS,     KC_TRNS,     KC_TRNS,     KC_TRNS,     KC_TRNS,     KC_TRNS,      KC_TRNS,                   KC_NO,     C(KC_Z),     C(KC_Y),     C(KC_V),     KC_VOLU,     KC_VOLD,     G(KC_T),
 /* |            |            |            |            |            |            |-------------|          |-------------|            |            |            |            |            |            |
    `------------+------------+---------+--+---------+--+---------+--+------------|             /           \            \------------+---+--------+---+--------+---+--------+------------+------------'
                                                                       Caps            Caps                      Caps             Caps
-                                       |            |            |    Space   | /     L3      /             \     L1     \  |    Space   |            |            |
+                                       |            |            |     L3     | /             /             \   Space    \  |     L1     |            |            |
                                        |            |            |            |/             /               \            \ |            |            |            |
 */ 	                                         KC_TRNS,     KC_TRNS,   BW_CAP_L3,    BW_CAP_L3,                     O_CAP_L1,      I_CAP_L1,     KC_TRNS,     KC_TRNS
 /*                                     `------------+------------+------------+-------------'                 '------------''------------+------------+------------'
 */),
 [3] = LAYOUT(
-/* AUTO MOUSE MOVE LAYER                                           * Need to work on dual function keys for this layer * RCS(KC_TAB)   RCTL(KC_TAB)
+/* AUTO MOUSE MOVE LAYER                                           * Need to work on dual function keys for this layer *
    ,------------+------------+------------+------------+------------+------------.                                      ,------------+------------+------------+------------+------------+------------.
-   |   Reset    |    Auto    |            |            |            |            |                                      |    Back    |   Forth    |    Close   |     Min    |    Max     |   Close    |
-      EEPROM      Mouse Layer                                                                                                                           Tab        Window       Window      Window
-*/QK_CLEAR_EEPROM,    ML_AUTO,       KC_NO,       KC_NO,       KC_NO,       KC_NO,                                        KC_WWW_BACK,KC_WWW_FORWARD,RCTL(KC_W),  G(KC_DOWN),    G(KC_UP),    A(KC_F4),
-/* |            |            |            |            |            |            |                                      |Left Tab    |Right Tab   | Play Pause |            |            |            |
+   |   Reset    |    Auto    |            |            |            |            |                                      |    Left    |    Right   |    Close   |     Min    |    Max     |   Close    |
+      EEPROM      Mouse Layer                                                                                                Tab           Tab          Tab        Window       Window      Window
+*/QK_CLEAR_EEPROM,    ML_AUTO,       KC_NO,       KC_NO,       KC_NO,       KC_NO,                                            KC_TRNS,     KC_TRNS,     KC_TRNS,     KC_TRNS,     KC_TRNS,     KC_TRNS,
+/* |            |            |            |            |            |            |                                      |    Back    |   Forth    |  Undo Tab  |            |            |            |
    |------------+------------+------------+------------+------------+------------|                                      |------------+------------+------------+------------+------------+------------|
-       Button                                   Up                                                                          MB1          MB2           MB3
+       Button                                   Up                                                                            MB1          MB2           Up
         Swap
-*/        B_SWAP,     KC_TRNS,     KC_TRNS,     KC_TRNS,     KC_TRNS,     KC_TRNS,                                         KC_MS_BTN1,  KC_MS_BTN2,  KC_MS_BTN2,       KC_NO,       KC_NO,       KC_NO,
+*/        B_SWAP,     KC_TRNS,     KC_TRNS,     KC_TRNS,     KC_TRNS,     KC_TRNS,                                         KC_MS_BTN1,  KC_MS_BTN2,       KC_UP,     KC_TRNS,     KC_TRNS,     KC_TRNS,
 /* |            |            |            |            |            |            |                                      |            |            |            |            |            |            |
    |------------+------------+------------+------------+------------+------------|                                      |------------+------------+------------+------------+------------+------------|
-                      Redo        Left        Down          Right                                                            Last         Cycle         Down         Right         Tab         Undo
-                                                                                                                            Window       Window                                   Window        Tab
-*/         KC_NO,     KC_TRNS,     KC_TRNS,     KC_TRNS,     KC_TRNS,     KC_TRNS,                                          A(KC_TAB),    A(KC_ESC),     KC_DOWN,     KC_RGHT, LCA(KC_TAB),   RCS(KC_T),
+       LShift        Redo         Left        Down          Right                                                                         Left         Down         Right         Tab
+                                                                                                                                                                                Window
+*/       KC_TRNS,     KC_TRNS,     KC_TRNS,     KC_TRNS,     KC_TRNS,     KC_TRNS,                                            KC_TRNS,     KC_TRNS,     KC_TRNS,     KC_TRNS,     KC_TRNS,     KC_TRNS,
 /* |            |            |            |            |            |            |-------------.          ,-------------|            |            |            |            |            |            |
-   |------------+------------+------------+------------+------------+------------|GROWTH_FACTOR|          |GROWTH_FACTOR|------------+------------+------------+------------+------------+------------|
-       LShift        Undo         Cut          Copy         Paste                                                            Undo         Redo         Paste       Volume       Volume       Taskbar
+   |------------+------------+------------+------------+------------+------------|GROWTH_FACTOR|          |     MB3     |------------+------------+------------+------------+------------+------------|
+        LCtrl        Undo         Cut          Copy         Paste                                                            Undo         Redo         Paste       Volume       Volume       Taskbar
                                                                                                                                                                     Down          Up         Buttons
-*/       KC_LSFT,     KC_TRNS,     KC_TRNS,     KC_TRNS,     KC_TRNS,     C(KC_Y),     FX_SLV_M,                FX_SLV_P,     C(KC_Z),     C(KC_Y),     C(KC_V),     KC_VOLU,     KC_VOLD,     G(KC_T),
+*/       KC_TRNS,     KC_TRNS,     KC_TRNS,     KC_TRNS,     KC_TRNS,     C(KC_Y),     FX_SLV_M,              KC_MS_BTN3,     KC_TRNS,     KC_TRNS,     KC_TRNS,     KC_TRNS,     KC_TRNS,     KC_TRNS,
 /* |            |            |            |            |            |            |-------------|          |-------------|            |            |            |            |            |            |
    `------------+------------+---------+--+---------+--+---------+--+------------|             /           \            \------------+---+--------+---+--------+---+--------+------------+------------'
 
@@ -486,14 +515,14 @@ const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
 */        B_SWAP,     KC_TRNS,     KC_TRNS,     KC_TRNS,     KC_TRNS,     KC_TRNS,                                            KC_TRNS,     KC_TRNS,     KC_TRNS,     KC_TRNS,     KC_TRNS,     KC_TRNS,
 /* |            |            |            |            |            |            |       MOMENTUM                       |            |            |            |            |            |            |
    |------------+------------+------------+------------+------------+------------|       MIN_SCALE                      |------------+------------+------------+------------+------------+------------|
-   |            |            |            |            |            |            |       MAX_SCALE                      |Incrementer |Incrementer |            |            |            |            |
+   |   LShift   |            |            |            |            |            |       MAX_SCALE                      |Incrementer |Incrementer |            |            |            |            |
                                                                                                                              -0.5         +0.5
 */       KC_TRNS,     KC_TRNS,     KC_TRNS,     KC_TRNS,     KC_TRNS,     KC_TRNS,                                            KC_TRNS,     KC_TRNS,     KC_TRNS,     KC_TRNS,     KC_TRNS,     KC_TRNS,
 /* |            |            |            |            |            |            |-------------.          ,-------------|            |            |            |            |            |            |
    |------------+------------+------------+------------+------------+------------|GROWTH_FACTOR|          |GROWTH_FACTOR|------------+------------+------------+------------+------------+------------|
-       LShift        Undo         Cut          Copy         Paste                                                        Incrementer  Incrementer
+         LCtrl       Undo         Cut          Copy         Paste                                                        Incrementer  Incrementer
                                                                                         -                        +            -1           +1
-*/       KC_LSFT,     KC_TRNS,     KC_TRNS,     KC_TRNS,     KC_TRNS,     KC_TRNS,     FX_SLV_M,                FX_SLV_P,     KC_TRNS,     KC_TRNS,     KC_TRNS,     KC_TRNS,     KC_TRNS,     KC_TRNS,
+*/       KC_TRNS,     KC_TRNS,     KC_TRNS,     KC_TRNS,     KC_TRNS,     KC_TRNS,     FX_SLV_M,                FX_SLV_P,     KC_TRNS,     KC_TRNS,     KC_TRNS,     KC_TRNS,     KC_TRNS,     KC_TRNS,
 /* |            |            |            |            |            |            |-------------|          |-------------|            |            |            |            |            |            |
    `------------+------------+---------+--+---------+--+---------+--+------------|             /           \            \------------+---+--------+---+--------+---+--------+------------+------------'
 
@@ -941,7 +970,7 @@ report_mouse_t pointing_device_task_combined_user(report_mouse_t left_report, re
         if (right_button.mode == MODE_ARROW || right_button.mode == MODE_SCROLL) {
             emulate[right_button.mode](&right_report);
         }
-
+/*
         // Handle layer overrides (single call to get_highest_layer)
         uint8_t highest_layer = get_highest_layer(layer_state);
         if (highest_layer == 1 || highest_layer == 2) {
@@ -949,7 +978,7 @@ report_mouse_t pointing_device_task_combined_user(report_mouse_t left_report, re
             emulate[highest_layer](&left_report);
             emulate[highest_layer](&right_report);
         }
-
+*/
         // Adaptive scaling
         pimoroni_adaptive_scaling(&left_report);
         pimoroni_adaptive_scaling(&right_report);
@@ -980,6 +1009,10 @@ report_mouse_t pointing_device_task_combined_user(report_mouse_t left_report, re
  | lto-wrapper.exe: note: see the '-flto' option documentation for more information
 
 -- Log of changes: --
+
+8.28.2025
+-Made keycode binding more convienent and organized.
+-Added dual mode keys
 
 8.27.2025
 Added BSPC_H to repeat on hold. Using matrix_scan_user(). Not sure if it'll have a negative impact or not. But it works for Tap, Hold & Repeat.
