@@ -58,9 +58,9 @@ uint8_t     KEY_MATRIX;
 // Structs for handle_mouse_buttons()
 typedef enum {
     MODE_OFF,
-    MODE_PENDING, // waiting to see if next tap is coming
     MODE_ARROW,
-    MODE_SCROLL
+    MODE_SCROLL,
+    MODE_PENDING // waiting to see if next tap is coming
 } emu_mode_t;
 
 typedef struct {
@@ -152,10 +152,9 @@ static bool tap_hold_handler(
         } else {
             record->event.pressed ? register_code(alt_key) : unregister_code(alt_key);
             if (mb && timer_elapsed(RGB_MS_MOVE) > TIMER_LIMITER) {
-            RGB_MS_MOVE = timer_read();
+                RGB_MS_MOVE = timer_read();
+            }
         }
-        }
-        return false;
     } else {
         // If timer provided, do timed tap/hold behavior
         if (record->event.pressed) {
@@ -167,8 +166,8 @@ static bool tap_hold_handler(
                 tap_code(alt_key);
             }
         }
-        return false;
     }
+    return false;
 }
 
 enum custom_keycodes {
@@ -410,7 +409,7 @@ const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
 */       KC_LSFT,     C(KC_Z),     C(KC_X),     C(KC_C),     C(KC_V),     KC_MNXT,      KC_MPLY,                 KC_MUTE,       KC_NO,       KC_P1,       KC_P2,       KC_P3,     KC_PDOT,     KC_RSFT,
 /* |            |            |            |            |            |            |-------------|          |-------------|            |            |            |            |            |            |
    `------------+------------+---------+--+---------+--+---------+--+------------|             /           \            \------------+---+--------+---+--------+---+--------+------------+------------'
-                                                         LGUI         Space          Space                       Tab             Tab            0
+                                                                      Space          Space                       Tab             Tab            0
                                        |            |            |            | /     L2      /             \     L3     \  |   Space    |            |            |
                                        |            |            |            |/             /               \            \ |            |            |            |
 */ 	                                         KC_TRNS,     KC_TRNS,    I_SPC_L2,     O_SPC_L2,                    BW_TAB_L3,     BW_TAB_L3,       KC_P0,     KC_TRNS
@@ -484,16 +483,16 @@ const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
    |------------+------------+------------+------------+------------+------------|    SCROLL_DIVISOR_H                  |------------+------------+------------+------------+------------+------------|
        Button                                                       RGB_MS_TIMEOUT
         Swap
-*/        B_SWAP,     KC_TRNS,     KC_TRNS,     KC_TRNS,     KC_TRNS,     KC_TRNS,                                   KC_TRNS,     KC_TRNS,     KC_TRNS,     KC_TRNS,     KC_TRNS,     KC_TRNS,
+*/        B_SWAP,     KC_TRNS,     KC_TRNS,     KC_TRNS,     KC_TRNS,     KC_TRNS,                                            KC_TRNS,     KC_TRNS,     KC_TRNS,     KC_TRNS,     KC_TRNS,     KC_TRNS,
 /* |            |            |            |            |            |            |       MOMENTUM                       |            |            |            |            |            |            |
    |------------+------------+------------+------------+------------+------------|       MIN_SCALE                      |------------+------------+------------+------------+------------+------------|
-   |            |            |            |            |            |            |       MAX_SCALE                      |            |            |            |            |            |            |
-
+   |            |            |            |            |            |            |       MAX_SCALE                      |Incrementer |Incrementer |            |            |            |            |
+                                                                                                                             -0.5         +0.5
 */       KC_TRNS,     KC_TRNS,     KC_TRNS,     KC_TRNS,     KC_TRNS,     KC_TRNS,                                            KC_TRNS,     KC_TRNS,     KC_TRNS,     KC_TRNS,     KC_TRNS,     KC_TRNS,
 /* |            |            |            |            |            |            |-------------.          ,-------------|            |            |            |            |            |            |
    |------------+------------+------------+------------+------------+------------|GROWTH_FACTOR|          |GROWTH_FACTOR|------------+------------+------------+------------+------------+------------|
-       LShift        Undo         Cut          Copy         Paste                                                        Incrementer  Incremeneter
-                                                                                        -                        +             -            +
+       LShift        Undo         Cut          Copy         Paste                                                        Incrementer  Incrementer
+                                                                                        -                        +            -1           +1
 */       KC_LSFT,     KC_TRNS,     KC_TRNS,     KC_TRNS,     KC_TRNS,     KC_TRNS,     FX_SLV_M,                FX_SLV_P,     KC_TRNS,     KC_TRNS,     KC_TRNS,     KC_TRNS,     KC_TRNS,     KC_TRNS,
 /* |            |            |            |            |            |            |-------------|          |-------------|            |            |            |            |            |            |
    `------------+------------+---------+--+---------+--+---------+--+------------|             /           \            \------------+---+--------+---+--------+---+--------+------------+------------'
@@ -657,34 +656,41 @@ layer_state_t layer_state_set_user(layer_state_t state) {
 
 // Use matrix_scan_user with caution & sparingly: runs frequently
 void matrix_scan_user(void) {
-    // Scan for dual-role key pressed/held
-    if (is_keyboard_master()) {
-        if ((BS_HOL) && (timer_elapsed(BS_TIM) > TAPPING_TERM)) { // Not ideal, so use custom global state instead
-            BS_HOL = false;
-            switch (KEY_MATRIX) {
-                case 0:
-                    register_code(KC_BSPC); break;
-                case 1: // Mouse Selection & Copy on release
-                    register_code(KC_MS_BTN1);
-                    unregister_code(KC_MS_BTN1);
-                    register_code(KC_LSFT); break;
-            }
-        }
-        if (BS_REL) {
-            switch (KEY_MATRIX) {
-                case 0:
-                    unregister_code(KC_BSPC); break;
-                case 1:
-                    unregister_code(KC_LSFT);
-                    register_code16(C(KC_C));
-                    unregister_code16(C(KC_C)); break;
-            }
-            BS_REL = false;
-        }
+    if (!is_keyboard_master()) return;
 
-        if (TLAY_PEN && timer_elapsed(TLAY_REL) > 200) {
-            layer_jump_timeout();
+    uint16_t bs_elapsed = timer_elapsed(BS_TIM);
+    uint16_t tlay_elapsed = timer_elapsed(TLAY_REL);
+
+    if (BS_HOL && bs_elapsed > TAPPING_TERM) {
+        BS_HOL = false;
+        switch(KEY_MATRIX) {
+            case 0:
+                register_code(KC_BSPC);
+                break;
+            case 1:
+                register_code(KC_MS_BTN1);
+                unregister_code(KC_MS_BTN1);
+                register_code(KC_LSFT);
+                break;
         }
+    }
+
+    if (BS_REL) {
+        switch(KEY_MATRIX) {
+            case 0:
+                unregister_code(KC_BSPC);
+                break;
+            case 1:
+                unregister_code(KC_LSFT);
+                register_code16(C(KC_C));
+                unregister_code16(C(KC_C));
+                break;
+        }
+        BS_REL = false;
+    }
+
+    if (TLAY_PEN && tlay_elapsed > 200) {
+        layer_jump_timeout();
     }
 }
 
@@ -778,95 +784,87 @@ void handle_scroll_emulation(report_mouse_t* mouse_report) {
 // #define GROWTH_FACTOR 8.0f - moved to global variable for runtime adjustment
 
 static void pimoroni_adaptive_scaling(report_mouse_t* mouse_report) {
-
     static float accumulated_factor = MIN_SCALE;
 
-    // Vector length of raw motion (x and y)
-    float mouse_length = sqrtf((float)(mouse_report->x * mouse_report->x) + (float)(mouse_report->y * mouse_report->y));
+    float x = (float)mouse_report->x;
+    float y = (float)mouse_report->y;
 
-    // Compute instantaneous scaling factor and update exponential moving average
+    float mouse_length = sqrtf(x * x + y * y);
+
     float factor = GROWTH_FACTOR * mouse_length + MIN_SCALE;
 
-    // Update exponential moving average of scaling factor
     accumulated_factor = accumulated_factor * (1.0f - MOMENTUM) + factor * MOMENTUM;
 
     if (accumulated_factor > MAX_SCALE) {
-        // Clamp scaling factor to avoid overflow
-        mouse_report->x = (int16_t)(mouse_report->x * MAX_SCALE);
-        mouse_report->y = (int16_t)(mouse_report->y * MAX_SCALE);
-    } else {
-        // Scale mouse movement by average factor
-        mouse_report->x = (int16_t)(mouse_report->x * accumulated_factor);
-        mouse_report->y = (int16_t)(mouse_report->y * accumulated_factor);
+        accumulated_factor = MAX_SCALE;
     }
+
+    int32_t scaled_x = (int32_t)(x * accumulated_factor);
+    int32_t scaled_y = (int32_t)(y * accumulated_factor);
+
+    // Clamp to int16_t range to avoid overflow
+    if (scaled_x > 32767) scaled_x = 32767;
+    else if (scaled_x < -32768) scaled_x = -32768;
+
+    if (scaled_y > 32767) scaled_y = 32767;
+    else if (scaled_y < -32768) scaled_y = -32768;
+
+    mouse_report->x = (int16_t)scaled_x;
+    mouse_report->y = (int16_t)scaled_y;
 }
 
 static btn_state_t handle_mouse_buttons(report_mouse_t report, btn_state_t state) {
     bool pressed = (report.buttons & (1 << 0)) != 0;
+    uint16_t now = timer_read(); //
 
     if (pressed && !state.button_was_pressed) {
-        uint16_t now = timer_read();
-
         if (state.mode == MODE_OFF) {
-            // First tap from OFF → enter pending state
             state.mode = MODE_PENDING;
             state.last_press_time = now;
-        }
-        else if (state.mode == MODE_PENDING) {
+            set_trackball_rgb_for_slave(0, 2);
+        } else if (state.mode == MODE_PENDING) {
             if (timer_elapsed(state.last_press_time) < 400) {
                 state.mode = MODE_ARROW;
-                //handle_arrow_emulation(&report);
-                set_trackball_rgb_for_slave(1,2);
+                set_trackball_rgb_for_slave(1, 2);
             } else {
-                // Too slow, treat as new first press
                 state.last_press_time = now;
             }
-        }
-        else {
-            // Arrow or Scroll is already active → turn off
+        } else {
+            // MODE_ARROW or MODE_SCROLL active → turn off
             state.mode = MODE_OFF;
-            set_trackball_rgb_for_slave(0,2);
+            set_trackball_rgb_for_slave(0, 2);
+        }
+    } else if (state.mode == MODE_PENDING) {
+        if (timer_elapsed(state.last_press_time) >= 400) {
+            state.mode = MODE_SCROLL;
+            set_trackball_rgb_for_slave(2, 2);
         }
     }
 
-    // If we're pending and time ran out, finalize as Scroll
-    if (state.mode == MODE_PENDING && timer_elapsed(state.last_press_time) >= 400) {
-        // Single tap quick → Scroll
-        state.mode = MODE_SCROLL;
-        //handle_scroll_emulation(&report);
-        set_trackball_rgb_for_slave(2,2);
-    }
-
+    // Always update the button pressed flag before returning
     state.button_was_pressed = pressed;
     return state;
-
-    // Usage: Passed by value, state is returned to caller.
-    // left_button  = handle_mouse_buttons(left_report,  left_button);
-    // right_button = handle_mouse_buttons(right_report, right_button);
 }
 
 // Mouse Mode Handling Syncing RGB
 // Activates mouse mode (white RGB) on movement, reverts to layer color after timeout
 static report_mouse_t handle_mouse_mode_rgb(report_mouse_t left_report, report_mouse_t right_report) {
-    // Changed from void to report_mouse_t to see if it's more performant
-
+    // Combine movement
     int16_t combined_x = left_report.x + right_report.x;
     int16_t combined_y = left_report.y + right_report.y;
-    uint8_t m_m_layer, m_s_layer, l_layer, r_layer;
-    // LEFT BUTTON
-    switch (left_button.mode) {
-        case MODE_OFF:      l_layer = 4; break;
-        case MODE_ARROW:    l_layer = 1; break;
-        case MODE_SCROLL:   l_layer = 2; break;
-        default: break;
-    }
-    // RIGHT BUTTON
-    switch (right_button.mode) {
-        case MODE_OFF:      r_layer = 4; break;
-        case MODE_ARROW:    r_layer = 1; break;
-        case MODE_SCROLL:   r_layer = 2; break;
-        default: break;
-    }
+
+    // Map button modes to layers (4=off, 1=arrow, 2=scroll)
+    static const uint8_t mode_to_layer[] = {
+        [MODE_OFF]    = 4,
+        [MODE_ARROW]  = 1,
+        [MODE_SCROLL] = 2
+    };
+
+    uint8_t l_layer = mode_to_layer[left_button.mode];
+    uint8_t r_layer = mode_to_layer[right_button.mode];
+
+    // Master/slave layer setup
+    uint8_t m_m_layer, m_s_layer;
     #ifdef MASTER_LEFT
         m_m_layer = r_layer;
         m_s_layer = l_layer;
@@ -874,43 +872,43 @@ static report_mouse_t handle_mouse_mode_rgb(report_mouse_t left_report, report_m
         m_m_layer = l_layer;
         m_s_layer = r_layer;
     #endif
-    // Move Layer
-    if ((combined_x != 0 || combined_y != 0)) {
-        // Activate mouse mode (white RGB)
+
+    // Trackball movement active
+    if (combined_x || combined_y) {
+        // Only update on first activation
         if (!RGB_MS_MODE || RGB_CURRENT == 0) {
-            // This causes some short lived RGB syncing issues but worth it to not spam RPC coms
-            // May have fixed short lived syncing issue by adding RGB_CURRENT == 0
             set_trackball_rgb_for_layer(m_m_layer);
             set_trackball_rgb_for_slave(m_s_layer, 0);
             RGB_MS_MODE = true;
         }
-        // Reduce unecessary timer reads on every mouse move
+        // Throttle timer updates
         if (timer_elapsed(RGB_MS_MOVE) > TIMER_LIMITER) {
             RGB_MS_MOVE = timer_read();
         }
-    // Current Layer
+
+    // Idle timeout → revert to current layer
     } else if (RGB_MS_MODE && timer_elapsed(RGB_MS_MOVE) > RGB_MS_TIMEOUT) {
         RGB_MS_MODE = false;
-        // Timeout → revert to current active layer
         led_t caps = host_keyboard_led_state();
         uint8_t current_layer = caps.caps_lock ? 6 : get_highest_layer(layer_state);
-        set_trackball_rgb_for_slave(current_layer,2);
+        set_trackball_rgb_for_slave(current_layer, 2);
     }
+
     return pointing_device_combine_reports(left_report, right_report);
 }
 
 static report_mouse_t auto_mouse_layer_handler(report_mouse_t mouse_report) {
+
+    uint16_t elapsed = timer_elapsed(ATML_Timer);
     if (mouse_report.x || mouse_report.y) {
-        // Mouse moved or button pressed, turn on mouse layer
         if (!ATML_Active) {
             layer_on(3);
             ATML_Active = true;
         }
-        // Only reset timer once on first movement
-        if (timer_elapsed(ATML_Timer) > TIMER_LIMITER) {
+        if (elapsed > TIMER_LIMITER) {
             ATML_Timer = timer_read();
         }
-    } else if (timer_elapsed(ATML_Timer) > ATML_TIMEOUT) {
+    } else if (elapsed > ATML_TIMEOUT) {
         if (ATML_Active) {
             layer_off(3);
             ATML_Active = false;
@@ -920,11 +918,11 @@ static report_mouse_t auto_mouse_layer_handler(report_mouse_t mouse_report) {
 }
 
 report_mouse_t pointing_device_task_combined_user(report_mouse_t left_report, report_mouse_t right_report) {
-
     if (is_keyboard_master()) {
         // Handle button logic
-        left_button  = handle_mouse_buttons(left_report,  left_button);
+        left_button  = handle_mouse_buttons(left_report, left_button);
         right_button = handle_mouse_buttons(right_report, right_button);
+
         // Handle Mousing Mode or Auto Mouse Layer
         if (ATML) {
             auto_mouse_layer_handler(left_report);
@@ -932,34 +930,31 @@ report_mouse_t pointing_device_task_combined_user(report_mouse_t left_report, re
         } else {
             handle_mouse_mode_rgb(left_report, right_report);
         }
-        // Apply continuous emulation depending on active mode
-        switch (left_button.mode) {
-            case MODE_ARROW:  handle_arrow_emulation(&left_report);  break;
-            case MODE_SCROLL: handle_scroll_emulation(&left_report); break;
-            default: break;
+
+        // Helper lambda-like (inline) function for repeated emulations
+        void (*emulate[])(report_mouse_t*) = {NULL, handle_arrow_emulation, handle_scroll_emulation};
+
+        // Apply continuous emulation depending on active mode (left and right)
+        if (left_button.mode == MODE_ARROW || left_button.mode == MODE_SCROLL) {
+            emulate[left_button.mode](&left_report);
         }
-        switch (right_button.mode) {
-            case MODE_ARROW:  handle_arrow_emulation(&right_report);  break;
-            case MODE_SCROLL: handle_scroll_emulation(&right_report); break;
-            default: break;
+        if (right_button.mode == MODE_ARROW || right_button.mode == MODE_SCROLL) {
+            emulate[right_button.mode](&right_report);
         }
-        // --- Layer overrides ---
-        switch (get_highest_layer(layer_state)) {
-            case 1:
-                handle_arrow_emulation(&left_report);
-                handle_arrow_emulation(&right_report);
-                break;
-            case 2:
-                handle_scroll_emulation(&left_report);
-                handle_scroll_emulation(&right_report);
-                break;
-            default: break;
+
+        // Handle layer overrides (single call to get_highest_layer)
+        uint8_t highest_layer = get_highest_layer(layer_state);
+        if (highest_layer == 1 || highest_layer == 2) {
+            // Incrementing to offset and match emu_mode_t struct index
+            emulate[highest_layer](&left_report);
+            emulate[highest_layer](&right_report);
         }
-        // --- Scaling ---
+
+        // Adaptive scaling
         pimoroni_adaptive_scaling(&left_report);
         pimoroni_adaptive_scaling(&right_report);
 
-        // Clear button taps before sending
+        // Clear buttons before sending
         left_report.buttons = 0;
         right_report.buttons = 0;
     }
