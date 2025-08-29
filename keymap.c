@@ -482,12 +482,12 @@ const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
 */QK_CLEAR_EEPROM,    ML_AUTO,       KC_NO,       KC_NO,       KC_NO,       KC_NO,                                            KC_TRNS,     KC_TRNS,     KC_TRNS,     KC_TRNS,     KC_TRNS,     KC_TRNS,
 /* |            |            |            |            |            |            |    SCROLL_DIVISOR_H                  |            |            |            |            |            |            |
    |------------+------------+------------+------------+------------+------------|    SCROLL_DIVISOR_H                  |------------+------------+------------+------------+------------+------------|
-       Button                                                       RGB_MS_TIMEOUT       MOMENTUM
-        Swap                                                                             MIN_SCALE
-*/        B_SWAP,     KC_TRNS,     KC_TRNS,     KC_TRNS,     KC_TRNS,     KC_TRNS,       MAX_SCALE                            KC_TRNS,     KC_TRNS,     KC_TRNS,     KC_TRNS,     KC_TRNS,     KC_TRNS,
-/* |            |            |            |            |            |            |                                      |            |            |            |            |            |            |
-   |------------+------------+------------+------------+------------+------------|                                      |------------+------------+------------+------------+------------+------------|
-   |            |            |            |            |            |            |                                      |            |            |            |            |            |            |
+       Button                                                       RGB_MS_TIMEOUT
+        Swap
+*/        B_SWAP,     KC_TRNS,     KC_TRNS,     KC_TRNS,     KC_TRNS,     KC_TRNS,                                   KC_TRNS,     KC_TRNS,     KC_TRNS,     KC_TRNS,     KC_TRNS,     KC_TRNS,
+/* |            |            |            |            |            |            |       MOMENTUM                       |            |            |            |            |            |            |
+   |------------+------------+------------+------------+------------+------------|       MIN_SCALE                      |------------+------------+------------+------------+------------+------------|
+   |            |            |            |            |            |            |       MAX_SCALE                      |            |            |            |            |            |            |
 
 */       KC_TRNS,     KC_TRNS,     KC_TRNS,     KC_TRNS,     KC_TRNS,     KC_TRNS,                                            KC_TRNS,     KC_TRNS,     KC_TRNS,     KC_TRNS,     KC_TRNS,     KC_TRNS,
 /* |            |            |            |            |            |            |-------------.          ,-------------|            |            |            |            |            |            |
