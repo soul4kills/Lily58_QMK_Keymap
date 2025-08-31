@@ -36,6 +36,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 // #define QUICK_TAP_TERM 0
 #define TAPPING_TERM 175
 #define BW_TAP_TIME 175
+#define TAPPING_TERM_PER_KEY
 #define TAPPING_FORCE_HOLD
 #define PERMISSIVE_HOLD
 #define BOTH_SHIFTS_TURNS_ON_CAPS_WORD
@@ -51,7 +52,9 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 // Added for led_update_user to work on slave side to handle caps lock layer RGB change, GIVES COMPILE WARNINGS, Removed this and caps lock syncing still works
 // #define SPLIT_LED_STATE_ENABLE
 
+// Allow more than 4 layers
 #define DYNAMIC_KEYMAP_LAYER_COUNT 5
+
 
 //----
 
