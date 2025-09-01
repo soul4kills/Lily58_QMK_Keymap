@@ -55,6 +55,8 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 // Allow more than 4 layers
 #define DYNAMIC_KEYMAP_LAYER_COUNT 5
 
+//----
+#define COMBO_COUNT 11  // N is the number of combos you want
 
 //----
 

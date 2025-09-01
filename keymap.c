@@ -151,11 +151,14 @@ static bool tap_hold_handler(
             record->event.pressed ? register_code16(tap_key) : unregister_code16(tap_key);
         } else {
             record->event.pressed ? register_code16(alt_key) : unregister_code16(alt_key);
+            // did some janky stuff here, gotta figure it out sometime but
+            // i fixed it by adding " RGB_MS_MODE = false; ". Not ideal, not sure what's causing RGB_MS_MDOE to get stuck true during ATML_Active
             if (mb && timer_elapsed(RGB_MS_MOVE) > TIMER_LIMITER) {
                 RGB_MS_MOVE = timer_read();
-                if (ATML_Active) {
-                    ATML_Timer = RGB_MS_MOVE;
-                }
+            }
+            if (ATML_Active && timer_elapsed(ATML_Timer) > TIMER_LIMITER) {
+                ATML_Timer = timer_read();
+                RGB_MS_MODE = false;
             }
         }
     } else {
@@ -278,6 +281,12 @@ bool process_record_user(
         }
     }
 */
+    if (keycode == KC_UP || keycode == KC_DOWN || keycode == KC_LEFT || keycode == KC_RIGHT) {
+        if (ATML_Timer) {
+            ATML_Timer = timer_read();
+        }
+    }
+
     switch (keycode) {
 
         case O_CAP_L1:
@@ -422,8 +431,8 @@ bool process_record_user(
         case CT_UN: // CLOSE TAB & UNDO CLOSE TAB
             return tap_hold_handler(RCTL(KC_W), RCS(KC_T), &rd1_timer, NULL, NULL, record);
 
-        case CW_LW: // CYCLE WINDOWS & LAST WINDOW
-            return tap_hold_handler(A(KC_ESC), A(KC_TAB), &rd1_timer, NULL, NULL, record);
+        case CW_LW: // LAST WINDOW & CYCLE WINDOWS
+            return tap_hold_handler(A(KC_TAB), A(KC_ESC), &rd1_timer, NULL, NULL, record);
 
         case NX_PR: // NEXT & PREVIOUS
             return tap_hold_handler(KC_MNXT, KC_MPRV, &ld1_timer, NULL, NULL, record);
@@ -435,10 +444,10 @@ bool process_record_user(
             return tap_hold_handler(C(KC_C), C(KC_V), &ld1_timer, NULL, NULL, record);
 
         case ML_MB1:
-            return tap_hold_handler(KC_MS_BTN1, KC_MS_BTN1, NULL, 0, true, record);
+            return tap_hold_handler(KC_MS_BTN1, KC_MS_BTN1, NULL, !ATML_Active, false, record);
 
         case ML_MB2:
-            return tap_hold_handler(KC_MS_BTN2, KC_MS_BTN2, NULL, 0, true, record);
+            return tap_hold_handler(KC_MS_BTN2, KC_MS_BTN2, NULL, !ATML_Active, false, record);
 
         case VD_VU: // VOLUME DOWN & VOLUME UP
             return tap_hold_handler(KC_VOLD, KC_VOLU, &rd1_timer, NULL, NULL, record);
@@ -451,6 +460,9 @@ bool process_record_user(
 
         case CW_FS: // CLOSE WINDOW & FULLSCREEN
             return tap_hold_handler(A(KC_F4), KC_F11, &rd1_timer, NULL, NULL, record);
+
+        case DL_DR: // CLOSE WINDOW & FULLSCREEN
+            return tap_hold_handler(G(C(KC_LEFT)), G(C(KC_RIGHT)), &rd1_timer, NULL, NULL, record);
 /*
         case MS_DEBUG:
             if (record->event.pressed) {
@@ -467,6 +479,50 @@ bool process_record_user(
     return true;
 }
 
+// Combos Start
+enum combos {
+    CL_PRN,
+    CR_PRN,
+    CL_CBR,
+    CR_CBR,
+    CL_BRC,
+    CR_BRC,
+    C_DEL,
+    C_BSP,
+    C_LMMB,
+    C_RMMB,
+    C_MMMB
+   // C_MMB2
+};
+
+const uint16_t PROGMEM l_prn[] = {KC_E, L_MB2, COMBO_END};
+const uint16_t PROGMEM r_prn[] = {KC_I, R_MB2, COMBO_END};
+const uint16_t PROGMEM l_cbr[] = {KC_D, KC_F, COMBO_END};
+const uint16_t PROGMEM r_cbr[] = {KC_J, KC_K, COMBO_END};
+const uint16_t PROGMEM l_brc[] = {KC_C, KC_V, COMBO_END};
+const uint16_t PROGMEM r_brc[] = {KC_M, KC_COMM, COMBO_END};
+const uint16_t PROGMEM l_del[] = {KC_F, KC_G, COMBO_END};
+const uint16_t PROGMEM r_bsp[] = {KC_H, KC_J, COMBO_END};
+const uint16_t PROGMEM l_mmb[] = {L_MB1, L_MB2, COMBO_END};
+const uint16_t PROGMEM r_mmb[] = {R_MB1, R_MB2, COMBO_END};
+const uint16_t PROGMEM m_mmb[] = {ML_MB1, ML_MB2, COMBO_END};
+
+combo_t key_combos[COMBO_COUNT] = {
+  [CL_PRN] = COMBO(l_prn, KC_LPRN),
+  [CR_PRN] = COMBO(r_prn, KC_RPRN),
+  [CL_CBR] = COMBO(l_cbr, KC_LCBR),
+  [CR_CBR] = COMBO(r_cbr, KC_RCBR),
+  [CL_BRC] = COMBO(l_brc, KC_LBRC),
+  [CR_BRC] = COMBO(r_brc, KC_RBRC),
+  [C_DEL] = COMBO(l_del, KC_DEL),
+  [C_BSP] = COMBO(r_bsp, KC_BSPC),
+  [C_LMMB] = COMBO(l_mmb, KC_MS_BTN3),
+  [C_RMMB] = COMBO(r_mmb, KC_MS_BTN3), // 10
+  [C_MMMB] = COMBO(m_mmb, KC_MS_BTN3),
+
+};
+// Combos End
+
 const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
 [0] = LAYOUT(
 /* QWERTY
@@ -477,17 +533,17 @@ const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
 /* |    Esc     |     1      |     2      |     3      |     4      |     5      |                                      |            |            |            |            |            |     +      |
    |------------+------------+------------+------------+------------+------------|                                      |------------+------------+------------+------------+------------+------------|
          Tab          Q            W            E            R            T                                                    Y           U            I            O            P            -
-
+                                                     [ ( ]                                                                                      [ ) ]
 */        KC_TAB,        KC_Q,        KC_W,        KC_E,       L_MB2,       L_MB1,                                              R_MB1,       R_MB2,        KC_I,        KC_O,        KC_P,     KC_BSLS,
 /* |            |            |            |            |     MB2    |     MB1    |                                      |     MB1    |     MB2    |            |            |            |            |
    |------------+------------+------------+------------+------------+------------|                                      |------------+------------+------------+------------+------------+------------|
         lShift        A            S            D            F            G                                                    H           J            K             L            ;           '
-
-*/       KC_LSFT,        KC_A,        KC_S,        KC_D,        KC_F,        KC_G,                                              KC_H ,        KC_J,        KC_K,        KC_L,     KC_SCLN,     KC_QUOT,
+                                                     [ { ]       [ DEL ]                                                         [ BCSPC ]      [ } ]
+*/       KC_LSFT,        KC_A,        KC_S,        KC_D,        KC_F,        KC_G,                                               KC_H,        KC_J,        KC_K,        KC_L,     KC_SCLN,     KC_QUOT,
 /* |            |            |            |            |            |            |-------------.          ,-------------|            |            |            |            |            |            |
    |------------+------------+------------+------------+------------+------------|     [       |          |      ]      |------------+------------+------------+------------+------------+------------|
         LCtrl         Z            X            C            V            B                                                    N           M            ,             .            /         Enter
-                                                                                       L1                       L2
+                                                     [ [ ]                                 L1                       L2                          [ ] ]
 */       KC_LCTL,        KC_Z,        KC_X,        KC_C,        KC_V,        KC_B,       L_LBRC,                  R_RBRC,        KC_N,        KC_M,     KC_COMM,      KC_DOT,     KC_SLSH,MT(MOD_RSFT,KC_ENT),
 /* |            |            |            |            |            |            |-------------|          |-------------|            |            |            |            |            |   RShift   |
    `------------+------------+---------+--+---------+--+---------+--+------------/             /          \             \------------+--+---------+--+---------+--+---------+------------+------------'
@@ -505,10 +561,10 @@ const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
 */         KC_F1,       KC_F2,       KC_F3,       KC_F4,       KC_F5,       KC_F6,                                              KC_F7,       KC_F8,       KC_F9,      KC_F10,      KC_F11,      KC_F12,
 /* |            |            |            |            |            |            |                                      |            |            |            |            |            |            |
    |------------+------------+------------+------------+------------+------------|                                      |------------+------------+------------+------------+------------+------------|
-       Button    Virt Desktop                   Up         Volume       Volume                                                 /           7            8            9             -           +
-        Swap         Left                                   Down          Up                                                                                                       _           =
-*/        B_SWAP,       DL_DR,       KC_NO,       KC_UP,     KC_VOLD,     KC_VOLU,                                            KC_PSLS,       KC_P7,       KC_P8,       KC_P9,     KC_MINS,      KC_EQL,
-/* |            |VDesk Right |            |            |            |            |                                      |            |            |            |            |            |            |
+       Button    Virt Desktop     Cycle         Up         Volume       Volume                                                 /           7            8            9             -           +
+        Swap         Left        Window                     Down          Up                                                                                                       _           =
+*/        B_SWAP,       DL_DR,       CW_LW,       KC_UP,     KC_VOLD,     KC_VOLU,                                            KC_PSLS,       KC_P7,       KC_P8,       KC_P9,     KC_MINS,      KC_EQL,
+/* |            |VDesk Right | Last Window|            |            |            |                                      |            |            |            |            |            |            |
    |------------+------------+------------+------------+------------+------------|                                      |------------+------------+------------+------------+------------+------------|
        LShift        Redo         Left         Down         Right                                                              *           4            5            6             +
 
@@ -558,24 +614,24 @@ const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
 [3] = LAYOUT(
 /* AUTO MOUSE MOVE LAYER                                            Need to work on dual function keys for this layer
    ,------------+------------+------------+------------+------------+------------.                                      ,------------+------------+------------+------------+------------+------------.
-   |   Reset    |    Auto    |            |            |            |            |                                      |    Left    |    Right   |    Close   |     Min    |    Max     |   Close    |
-      EEPROM      Mouse Layer                                                                                                Tab           Tab          Tab        Window       Window       Window
-*/QK_CLEAR_EEPROM,    ML_AUTO,       KC_NO,       KC_NO,       KC_NO,       KC_NO,                                            LTB_BK,      RTB_FW,        CT_UN,  G(KC_DOWN),    G(KC_UP),       CW_FS,
+   |   Reset    |    Auto    |   Combo    |            |            |            |                                      |    Left    |    Right   |    Close   |     Min    |    Max     |   Close    |
+      EEPROM      Mouse Layer    Toggle                                                                                      Tab           Tab          Tab        Window       Window       Window
+*/QK_CLEAR_EEPROM,    ML_AUTO,     CM_TOGG,       KC_NO,       KC_NO,       KC_NO,                                            LTB_BK,      RTB_FW,        CT_UN,  G(KC_DOWN),    G(KC_UP),       CW_FS,
 /* |            |            |            |            |            |            |                                      |    Back    |   Forth    |  Undo Tab  |            |            | Fullscreen |
    |------------+------------+------------+------------+------------+------------|                                      |------------+------------+------------+------------+------------+------------|
-       Button    Virt Desktop                   Up         Volume       Volume                                                MB1          MB2           Up                      Cycle
-        Swap         Left                                   Down          Up                                                                                                    Taskbar
-*/        B_SWAP,       DL_DR,       KC_NO,       KC_UP,     KC_VOLD,     KC_VOLU,                                            ML_MB1,       ML_MB2,       KC_UP,       KC_NO,       CT_TW,       KC_NO,
+       Button    Virt Desktop                   Up           MB2          MB1                                                MB1          MB2           Up                      Cycle
+        Swap         Left                                                                                                                                                       Taskbar
+*/        B_SWAP,       DL_DR,       KC_NO,       KC_UP,     ML_MB2,       ML_MB1,                                             ML_MB1,       ML_MB2,       KC_UP,       KC_NO,       CT_TW,       KC_NO,
 /* |            |VDesk Right |            |            |            |            |                                      |            |            |            |            | Tab Window |            |
    |------------+------------+------------+------------+------------+------------|                                      |------------+------------+------------+------------+------------+------------|
-       LShift        Redo         Left        Down          Right                                                            Cycle        Left         Down         Right       RCtrl       Audio
-                                                                                                                            Window                                                           Menu
-*/       KC_LSFT,     C(KC_Y),     KC_LEFT,     KC_DOWN,     KC_RGHT,       KC_G,                                              CW_LW,     KC_LEFT,     KC_DOWN,      KC_RGHT,     KC_RCTL,LCTL(RGUI(KC_V)),
-/* |            |            |            |            |            |            |-------------.          ,-------------| Last Window|            |            |            |            |            |
-   |------------+------------+------------+------------+------------+------------|GROWTH_FACTOR|          |     MB3     |------------+------------+------------+------------+------------+------------|
+       LShift        Redo         Left        Down          Right      Volume                                                Cycle        Left         Down         Right       RCtrl       Audio
+                                                                        Down                                                Window                                                           Menu
+*/       KC_LSFT,     C(KC_Y),     KC_LEFT,     KC_DOWN,     KC_RGHT,       VD_VU,                                              CW_LW,     KC_LEFT,     KC_DOWN,      KC_RGHT,     KC_RCTL,LCTL(RGUI(KC_V)),
+/* |            |            |            |            |            |    Up      |-------------.          ,-------------| Last Window|            |            |            |            |            |
+   |------------+------------+------------+------------+------------+------------|GROWTH_FACTOR|          |             |------------+------------+------------+------------+------------+------------|
         LCtrl        Undo         Cut          Copy         Paste       Next                                                              Undo         Copy        Delete       Volume       Enter
                                                                                                                                                                                  Down
-*/       KC_LCTL,     C(KC_Z),     C(KC_X),     C(KC_C),     C(KC_V),       NX_PR,      KC_MPLY,              KC_MS_BTN3,       KC_NO,       UN_RE,       CO_PA,       DE_CU,       VD_VU,     KC_TRNS,
+*/       KC_LCTL,     C(KC_Z),     C(KC_X),     C(KC_C),     C(KC_V),       NX_PR,      KC_MPLY,                   KC_NO,       KC_NO,       UN_RE,       CO_PA,       DE_CU,       VD_VU,     KC_TRNS,
 /* |            |            |            |            |            |  Previous  |-------------|          |-------------|            |    Redo    |    Paste   |     Cut    |     Up     |   RShift   |
    `------------+------------+---------+--+---------+--+---------+--+------------/             /          \             \------------+--+---------+--+---------+--+---------+------------+------------'
 
@@ -806,23 +862,7 @@ void matrix_scan_user(void) {
     }
 }
 
-// LED Indicator for Caps Lock
-bool led_update_user(led_t led_state) {
-    uint8_t layer;
-    if (led_state.caps_lock) {
-        layer = 6;
-    } else {
-        layer = get_highest_layer(layer_state);
-    }
-
-    set_trackball_rgb_for_slave(layer,2);
-    return false; // Prevent default handler if applicable
-
-    // Requires #define SPLIT_LED_STATE_ENABLE in config.h, OR maybe not, still works without it.
-}
-
-// LED Indicator for Caps Word
-void caps_word_set_user(bool active) {
+void caps_rgb_helper(bool active) {
     uint8_t layer;
     if (active) {
         layer = 6;
@@ -830,6 +870,19 @@ void caps_word_set_user(bool active) {
         layer = get_highest_layer(layer_state);
     }
     set_trackball_rgb_for_slave(layer,2);
+}
+
+// LED Indicator for Caps Lock
+bool led_update_user(led_t led_state) {
+    caps_rgb_helper(led_state.caps_lock);
+
+    return true; // Prevent default handler if applicable
+    // Requires #define SPLIT_LED_STATE_ENABLE in config.h, OR maybe not, still works without it.
+}
+
+// LED Indicator for Caps Word
+void caps_word_set_user(bool active) {
+    caps_rgb_helper(active);
 }
 
 // Arrow key emulation
@@ -1092,6 +1145,16 @@ report_mouse_t pointing_device_task_combined_user(report_mouse_t left_report, re
 
 -- Log of changes: --
 
+
+QK_COMBO_ON	    CM_ON	Turns on Combo feature
+QK_COMBO_OFF	CM_OFF	Turns off Combo feature
+
+
+9.01.2025
+-Added key combos
+-Consolidated caps lock led functions
+-Rearranged some keys
+
 8.28.2025
 -Made keycode binding more convienent and organized.
 -Added dual mode keys
@@ -1102,7 +1165,6 @@ Added BSPC_H to repeat on hold. Using matrix_scan_user(). Not sure if it'll have
 Optimized the code a bit to only call functions when they are needed to reduce overhead.
 Changed some if statements to switch statements.
 -Implement Built in auto mouse LAYER switching (Doe), Auto Mouse Layer may be causing timing issues, missed inputs, delayed inputs. Added more conditionals to stop what may have been a loop.
-
 
 8.26.2025
 -Changed 2 functions to report_mouse_t, as it seemed more performant than void. Specifically auto_mouse_layer_handler() & handle_mouse_mode_rgb() (I NEED TO UNDERSTAND WHY EVEN THOUGH THESE FUNCTIONS ONLY READ AND DON'T MANIPULATE)

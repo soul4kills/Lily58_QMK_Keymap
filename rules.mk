@@ -19,6 +19,9 @@ LTO_ENABLE          = yes
 NKRO_ENABLE 		= yes
 SERIAL_DRIVER 		= vendor
 
+COMBO_ENABLE		= yes
+FORCE_NKRO			= yes
+
 # Not really needed for RPC communications, still works without these
 # SPLIT_KEYBOARD		= yes
 # SPLIT_TRANSPORT		= yes
