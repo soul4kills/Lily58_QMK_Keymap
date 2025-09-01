@@ -1,3 +1,4 @@
+// https://docs.qmk.fm/custom_quantum_functions#deferred-execution
 
 #define MOUSE_LAYER 2
 #define MOUSE_LAYER_TIMEOUT 2000
