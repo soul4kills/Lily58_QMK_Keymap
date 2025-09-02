@@ -57,11 +57,12 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 //----
 #define COMBO_COUNT 12  // N is the number of combos you want
-
+#define COMBO_TERM  20
 //----
 // Vendor driver is used for RP2040 PIO serial
 #define SERIAL_USART_TX_PIN GP1
-// Testing for full duplex not sure if it made a difference on mouse reports. idank was set without this.
+// Testing for full duplex. idank profile was set without this.
+// Not sure if actually made a difference in slave mouse reports being more responsive
 #define SERIAL_USART_RX_PIN GP2
 
 #ifdef POINTING_DEVICE_POSITION_LEFT

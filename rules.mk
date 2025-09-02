@@ -20,6 +20,7 @@ NKRO_ENABLE 		= yes
 
 COMBO_ENABLE		= yes
 FORCE_NKRO			= yes
+TAP_DANCE_ENABLE	= yes
 
 # Vendor driver is used for RP2040 PIO serial
 SERIAL_DRIVER 		= vendor
@@ -69,5 +70,9 @@ ifeq ($(strip $(POINTING_DEVICE)), trackball)
 	endif
 endif
 
-# Example:
-#
+# Stops this warning during compile
+CFLAGS += -flto=auto
+#Linking: .build/lily58_rev1_via.elf                                                                 [WARNINGS]
+# |
+# | lto-wrapper.exe: warning: using serial compilation of 2 LTRANS jobs
+# | lto-wrapper.exe: note: see the '-flto' option documentation for more information Stops

@@ -31,20 +31,20 @@
 // make lily58/rev1:via:flash -e POINTING_DEVICE=trackball_trackball -e POINTING_DEVICE_POSITION=left -j8
 // make lily58/rev1:via:flash -e POINTING_DEVICE=trackball_trackball -e POINTING_DEVICE_POSITION=right -j8
 
-uint8_t     TLAY_LAY;
-uint16_t    TLAY_REL;
-bool        TLAY_PEN = false;
+uint8_t     LJ_LAYER;
+uint16_t    LJ_RELEASE;
+bool        LJ_ACTIVE = false;
 
 bool        BTN_SWAP = false;       // If true, swap the behavior of O_ & I_ keycodes
 float       GROWTH_FACTOR = 8;      // Moved here to retain value across key presses
-uint8_t     RGB_CURRENT;
+uint8_t     RGB_CURRENT;            // Holds current RGB color, Used in mouse handle_mouse_mode_rgb() to prevent unecessary calls
 
 bool        RGB_MS_MODE = false;    // RGB Emulation Mode Arrow/Scroll
 uint16_t    RGB_MS_MOVE;            // Holds Last Move Time
 // Auto Mouse Layer Variables
 bool        ATML = false;           // Off by Default
-bool        ATML_Active = false;
-uint16_t    ATML_Timer;
+bool        ATML_ACTIVE = false;
+uint16_t    ATML_TIMER;
 // Backspace repeating hold
 bool        BS_HOL;
 bool        BS_REL;
@@ -100,15 +100,17 @@ static void layer_jump_timeout(void) {
     layer_off(2);
     layer_off(3);
     layer_off(4);
-    TLAY_LAY = 0;
-    TLAY_PEN = false;
+    LJ_LAYER = 0;
+    LJ_ACTIVE = false;
 }
 
+// Handles Key Swapping of the 4 thumb keys
 static bool layer_jump_handler( // Tap into another layer using the same key
     uint16_t        tap_key,    // which keycode to tap if quick press
+    uint16_t        alt_key,
     uint8_t         layer,      // which layer to activate
     uint16_t*       timer,      // pointer to a timer variable (e.g., &bspc_l1_timer)
-    bool            condition,  // true = enter layer/tap branch, false = send KC_SPC
+    bool            condition,  // true = enter layer/tap branch
     keyrecord_t*    record) {
 
     if (record->event.pressed) {
@@ -116,40 +118,20 @@ static bool layer_jump_handler( // Tap into another layer using the same key
             *timer = timer_read();
             layer_off(layer == 1 ? 2 : 1); // turn off the "other" layer
             layer_on(layer);
-            TLAY_LAY = layer;
-            TLAY_PEN = false;
+            LJ_LAYER = layer;
+            LJ_ACTIVE = false;
         } else {
-            register_code16(KC_SPC);
+            register_code16(alt_key);
         }
     } else {
         if (condition) {
-            TLAY_REL = timer_read();
-            TLAY_PEN = true;
+            LJ_RELEASE = timer_read();
+            LJ_ACTIVE = true;
             if (timer_elapsed(*timer) < BW_TAP_TIME) {
                 tap_code16(tap_key);
             }
         } else {
-            unregister_code16(KC_SPC);
-        }
-    }
-    return false;
-}
-
-// Helper for tap-hold layer changing
-static bool layer_tap_handler(
-    uint16_t        tap_key,    // Tap Key
-    uint8_t         layer,      // Hold Layer
-    uint16_t*       timer,      // Timer
-    uint16_t        tap_time,   // Tap Time
-    keyrecord_t*    record) {
-
-    if (record->event.pressed) {
-        *timer = timer_read();
-        layer_on(layer);
-    } else {
-        layer_off(layer);
-        if (timer_elapsed(*timer) < tap_time) {
-            tap_code16(tap_key);
+            unregister_code16(alt_key);
         }
     }
     return false;
@@ -173,12 +155,12 @@ static bool tap_hold_handler(
         } else {
             record->event.pressed ? register_code16(alt_key) : unregister_code16(alt_key);
             // did some janky stuff here, gotta figure it out sometime but
-            // i fixed it by adding " RGB_MS_MODE = false; ". Not ideal, not sure what's causing RGB_MS_MDOE to get stuck true during ATML_Active
+            // i fixed it by adding " RGB_MS_MODE = false; ". Not ideal, not sure what's causing RGB_MS_MDOE to get stuck true during ATML_ACTIVE
             if (mb && timer_elapsed(RGB_MS_MOVE) > TIMER_LIMITER) {
                 RGB_MS_MOVE = timer_read();
             }
-            if (ATML_Active && timer_elapsed(ATML_Timer) > TIMER_LIMITER) {
-                ATML_Timer = timer_read();
+            if (ATML_ACTIVE && timer_elapsed(ATML_TIMER) > TIMER_LIMITER) {
+                ATML_TIMER = timer_read();
                 RGB_MS_MODE = false;
             }
         }
@@ -186,8 +168,8 @@ static bool tap_hold_handler(
         // If timer provided, do timed tap/hold behavior
         if (record->event.pressed) {
                 *timer = timer_read();
-            if (ATML_Timer && timer_elapsed(ATML_Timer) > TIMER_LIMITER) {
-                ATML_Timer = *timer;
+            if (ATML_TIMER && timer_elapsed(ATML_TIMER) > TIMER_LIMITER) {
+                ATML_TIMER = *timer;
             }
         } else {
             if (timer_elapsed(*timer) < BW_TAP_TIME) {
@@ -200,30 +182,12 @@ static bool tap_hold_handler(
     return false;
 }
 
-// Set custom Tapping Term
-uint16_t get_tapping_term(
-    uint16_t        keycode,
-    keyrecord_t*    record) {
-
-    switch (keycode) {
-        case LT(2, KC_SPC):  // Layer tap key example
-            return 500;
-        case LT(1, KC_CAPS):  // Layer tap key example
-            return 500;
-        default:
-            return TAPPING_TERM;
-    }
-    // Requires #define TAPPING_TERM in config.h
-    // #define TAPPING_TERM_PER_KEY , to set tapping term per key if needed
-}
-
+// Custom Keycodes Start
 enum custom_keycodes {
     O_CAP_L1 = SAFE_RANGE,  // 64
     O_SPC_L2,               // 65
     I_CAP_L1,               // 66
     I_SPC_L2,               // 67
-    BW_CAP_L3,              // 68
-    BW_TAB_L3,              // 69
     FX_SLV_M,               // 70
     FX_SLV_P,               // 71
     R_MB1,                  // 72
@@ -253,7 +217,6 @@ enum custom_keycodes {
     NX_PR,
     CT_UN,
     DL_DR,
-    SPC_L2,
     UN_RE,
     CO_PA,
     ML_MB1,
@@ -266,15 +229,16 @@ enum custom_keycodes {
 //    MS_DEBUG,               // 79
 };
 
+// Custom Keycodes End
 bool process_record_user(
     uint16_t        keycode,
     keyrecord_t*    record) {
 
     static uint16_t le1_timer;
-    static uint16_t le2_timer;
+//    static uint16_t le2_timer;
+//    static uint16_t ri2_timer;
     static uint16_t ld1_timer;
     static uint16_t ri1_timer;
-    static uint16_t ri2_timer;
     static uint16_t rd1_timer;
 /* Testing out key detection to reset ATML timer, but doesn't work for modded keys
     uint8_t mods = get_mods();
@@ -282,30 +246,30 @@ bool process_record_user(
 
     // Detect press of GUI key alone
     if (mods & MOD_MASK_GUI) {
-        ATML_Timer = timer_read();
+        ATML_TIMER = timer_read();
     }
 
     // Detect press of G key alone
     if (keycode == KC_G) {
-        ATML_Timer = timer_read();
+        ATML_TIMER = timer_read();
     }
 
     // Detect press of T key while GUI is held (Win+T)
     if (weakmods & MOD_MASK_GUI) {
         if (keycode == KC_T) {
-            ATML_Timer = timer_read();
+            ATML_TIMER = timer_read();
         }
     }    // Detect press of T key while GUI is held (Win+T)
     if (mods & MOD_MASK_GUI) {
         if (keycode == KC_T) {
-            ATML_Timer = timer_read();
+            ATML_TIMER = timer_read();
         }
     }
 */
     if (record->event.pressed) {
         if (keycode == KC_UP || keycode == KC_DOWN || keycode == KC_LEFT || keycode == KC_RIGHT) {
-            if (ATML_Timer) {
-                ATML_Timer = timer_read();
+            if (ATML_ACTIVE) {
+                ATML_TIMER = timer_read();
             }
         }
     }
@@ -313,37 +277,34 @@ bool process_record_user(
     switch (keycode) {
 
         case O_CAP_L1:
-            return layer_jump_handler(KC_CAPS, 1, &le1_timer, BTN_SWAP, record);
+            return layer_jump_handler(KC_CAPS, KC_SPC, 1, &le1_timer, BTN_SWAP, record);
 
         case O_SPC_L2:
-            return layer_jump_handler(KC_SPC, 2, &ri1_timer, BTN_SWAP, record);
+            return layer_jump_handler(KC_SPC, KC_SPC, 2, &ri1_timer, BTN_SWAP, record);
 
         case I_CAP_L1:
-            return layer_jump_handler(KC_CAPS, 1, &le1_timer, !BTN_SWAP, record);
+            return layer_jump_handler(KC_CAPS, KC_SPC, 1, &le1_timer, !BTN_SWAP, record);
 
         case I_SPC_L2:
-            return layer_jump_handler(KC_SPC, 2, &ri1_timer, !BTN_SWAP, record);
+            return layer_jump_handler(KC_SPC, KC_SPC, 2, &ri1_timer, !BTN_SWAP, record);
+        // Gaming BTN_SWAP Swap Keys
+        case S1_ESC:
+            return tap_hold_handler(KC_1, KC_ESC, NULL, !BTN_SWAP, false, record);
 
-        case BW_CAP_L3:
-            return layer_tap_handler(KC_CAPS, 4, &le2_timer, BW_TAP_TIME, record);
+        case S2_1:
+            return tap_hold_handler(KC_2, KC_1, NULL, !BTN_SWAP, false, record);
 
-        case BW_TAB_L3:
-            return layer_tap_handler(KC_TAB, 4, &ri2_timer, BW_TAP_TIME, record);
+        case S3_2:
+            return tap_hold_handler(KC_3, KC_2, NULL, !BTN_SWAP, false, record);
 
-        case SPC_L2:
-            return layer_tap_handler(KC_SPC, 2, &ri1_timer, BW_TAP_TIME, record);
+        case S4_3:
+            return tap_hold_handler(KC_4, KC_3, NULL, !BTN_SWAP, false, record);
 
-        case FX_SLV_M: // Reduce growth factor
-            if (record->event.pressed) {
-                GROWTH_FACTOR /= 2;
-            }
-            return false;
+        case S5_4:
+            return tap_hold_handler(KC_5, KC_4, NULL, !BTN_SWAP, false, record);
 
-        case FX_SLV_P: // Increase growth factor
-            if (record->event.pressed) {
-                GROWTH_FACTOR *= 2;
-            }
-            return false;
+        case S6_5:
+            return tap_hold_handler(KC_6, KC_5, NULL, !BTN_SWAP, false, record);
         // Group for mouse buttons with tap-hold behavior
         // _MB* are toggled by RGB_MS_MODE to change to mouse buttons on mouse move
         case R_MB1:
@@ -363,6 +324,60 @@ bool process_record_user(
 
         case PLS_BSPC:
             return tap_hold_handler(KC_BSPC, KC_EQL, &ri1_timer, NULL, NULL, record);
+
+        case ML_MB1:
+            return tap_hold_handler(KC_MS_BTN1, KC_MS_BTN1, NULL, !ATML_ACTIVE, false, record);
+
+        case ML_MB2:
+            return tap_hold_handler(KC_MS_BTN2, KC_MS_BTN2, NULL, !ATML_ACTIVE, false, record);
+
+        case LTB_BK: // LEFT TAB & BACKWARD
+            return tap_hold_handler(RCS(KC_TAB), KC_WWW_BACK, &rd1_timer, NULL, NULL, record);
+
+        case RTB_FW: // RIGHT TAB & FORWARD
+            return tap_hold_handler(RCTL(KC_TAB), KC_WWW_FORWARD, &rd1_timer, NULL, NULL, record);
+
+        case CT_UN: // CLOSE TAB & UNDO CLOSE TAB
+            return tap_hold_handler(RCTL(KC_W), RCS(KC_T), &rd1_timer, NULL, NULL, record);
+
+        case CW_LW: // LAST WINDOW & CYCLE WINDOWS
+            return tap_hold_handler(A(KC_TAB), A(KC_ESC), &rd1_timer, NULL, NULL, record);
+
+        case NX_PR: // NEXT & PREVIOUS
+            return tap_hold_handler(KC_MNXT, KC_MPRV, &ld1_timer, NULL, NULL, record);
+
+        case UN_RE: // UNDO & REDO
+            return tap_hold_handler(C(KC_Z), C(KC_Y), &ld1_timer, NULL, NULL, record);
+
+        case CO_PA: // COPY & PASTE
+            return tap_hold_handler(C(KC_C), C(KC_V), &ld1_timer, NULL, NULL, record);
+
+        case VD_VU: // VOLUME DOWN & VOLUME UP
+            return tap_hold_handler(KC_VOLD, KC_VOLU, &rd1_timer, NULL, NULL, record);
+
+        case CT_TW: // CYCLE TASKBAR & TAB CYCLE WINDOWS
+            return tap_hold_handler(G(KC_T), LCA(KC_TAB), &rd1_timer, NULL, NULL, record);
+
+        case DE_CU: // DELETE & CUT
+            return tap_hold_handler(KC_DEL, C(KC_X), &rd1_timer, NULL, NULL, record);
+
+        case CW_FS: // CLOSE WINDOW & FULLSCREEN
+            return tap_hold_handler(A(KC_F4), KC_F11, &rd1_timer, NULL, NULL, record);
+
+        case DL_DR: // VIRTUAL DESKOP LEFT & VIRTUAL DESKTOP RIGHT
+            return tap_hold_handler(G(C(KC_LEFT)), G(C(KC_RIGHT)), &rd1_timer, NULL, NULL, record);
+/*
+        case MS_DEBUG:
+            if (record->event.pressed) {
+                debug_enable = !debug_enable;  // Toggle debug output
+                if (debug_enable) {
+                    uprintf("Debug Enabled\n");
+                } else {
+                    uprintf("Debug Disabled\n");
+                }
+            }
+            return false;
+*/
         // Toggle Button Swap for MB* keys
         case B_SWAP:
             if (record->event.pressed) {
@@ -374,47 +389,26 @@ bool process_record_user(
                 }
             }
             return false;
-
-        case BLANK_SPACE_HOLDER:
-            return false;
-        // Bracket keys with tap-hold layer switching
-        case R_RBRC:
-            return layer_tap_handler(KC_RBRC, 2, &ri1_timer, 250, record);
-
-        case L_LBRC:
-            return layer_tap_handler(KC_LBRC, 1, &le1_timer, 250, record);
-        // Auto Mouse Layer Toggle
+        // Toggles Auto Mouse Layer
         case ML_AUTO:
             if (record->event.pressed) {
                 ATML = !ATML;
             }
             layer_jump_timeout();
             return false;
-        // Swap Keys
-        case LC_LS:
-            return tap_hold_handler(KC_LCTL, KC_LSFT, NULL, !BTN_SWAP, false, record);
+        // Incrementer
+        case FX_SLV_M: // Reduce growth factor
+            if (record->event.pressed) {
+                GROWTH_FACTOR /= 2;
+            }
+            return false;
 
-        case LS_LC:
-            return tap_hold_handler(KC_LSFT, KC_LCTL, NULL, !BTN_SWAP, false, record);
-
-        case S1_ESC:
-            return tap_hold_handler(KC_1, KC_ESC, NULL, !BTN_SWAP, false, record);
-
-        case S2_1:
-            return tap_hold_handler(KC_2, KC_1, NULL, !BTN_SWAP, false, record);
-
-        case S3_2:
-            return tap_hold_handler(KC_3, KC_2, NULL, !BTN_SWAP, false, record);
-
-        case S4_3:
-            return tap_hold_handler(KC_4, KC_3, NULL, !BTN_SWAP, false, record);
-
-        case S5_4:
-            return tap_hold_handler(KC_5, KC_4, NULL, !BTN_SWAP, false, record);
-
-        case S6_5:
-            return tap_hold_handler(KC_6, KC_5, NULL, !BTN_SWAP, false, record);
-
+        case FX_SLV_P: // Increase growth factor
+            if (record->event.pressed) {
+                GROWTH_FACTOR *= 2;
+            }
+            return false;
+        // BSPC_H & SEL_H testing after key release actions
         case BSPC_H:
             if (record->event.pressed) {
                 BS_TIM = timer_read();
@@ -444,64 +438,82 @@ bool process_record_user(
                 right_button.mode = MODE_OFF;
             }
             return false; // Skip default handling
-
-        case LTB_BK: // LEFT TAB & BACKWARD
-            return tap_hold_handler(RCS(KC_TAB), KC_WWW_BACK, &rd1_timer, NULL, NULL, record);
-
-        case RTB_FW: // RIGHT TAB & FORWARD
-            return tap_hold_handler(RCTL(KC_TAB), KC_WWW_FORWARD, &rd1_timer, NULL, NULL, record);
-
-        case CT_UN: // CLOSE TAB & UNDO CLOSE TAB
-            return tap_hold_handler(RCTL(KC_W), RCS(KC_T), &rd1_timer, NULL, NULL, record);
-
-        case CW_LW: // LAST WINDOW & CYCLE WINDOWS
-            return tap_hold_handler(A(KC_TAB), A(KC_ESC), &rd1_timer, NULL, NULL, record);
-
-        case NX_PR: // NEXT & PREVIOUS
-            return tap_hold_handler(KC_MNXT, KC_MPRV, &ld1_timer, NULL, NULL, record);
-
-        case UN_RE: // UNDO & REDO
-            return tap_hold_handler(C(KC_Z), C(KC_Y), &ld1_timer, NULL, NULL, record);
-
-        case CO_PA: // COPY & PASTE
-            return tap_hold_handler(C(KC_C), C(KC_V), &ld1_timer, NULL, NULL, record);
-
-        case ML_MB1:
-            return tap_hold_handler(KC_MS_BTN1, KC_MS_BTN1, NULL, !ATML_Active, false, record);
-
-        case ML_MB2:
-            return tap_hold_handler(KC_MS_BTN2, KC_MS_BTN2, NULL, !ATML_Active, false, record);
-
-        case VD_VU: // VOLUME DOWN & VOLUME UP
-            return tap_hold_handler(KC_VOLD, KC_VOLU, &rd1_timer, NULL, NULL, record);
-
-        case CT_TW: // CYCLE TASKBAR & TAB CYCLE WINDOWS
-            return tap_hold_handler(G(KC_T), LCA(KC_TAB), &rd1_timer, NULL, NULL, record);
-
-        case DE_CU: // DELETE & CUT
-            return tap_hold_handler(KC_DEL, C(KC_X), &rd1_timer, NULL, NULL, record);
-
-        case CW_FS: // CLOSE WINDOW & FULLSCREEN
-            return tap_hold_handler(A(KC_F4), KC_F11, &rd1_timer, NULL, NULL, record);
-
-        case DL_DR: // VIRTUAL DESKOP LEFT & VIRTUAL DESKTOP RIGHT
-            return tap_hold_handler(G(C(KC_LEFT)), G(C(KC_RIGHT)), &rd1_timer, NULL, NULL, record);
-/*
-        case MS_DEBUG:
-            if (record->event.pressed) {
-                debug_enable = !debug_enable;  // Toggle debug output
-                if (debug_enable) {
-                    uprintf("Debug Enabled\n");
-                } else {
-                    uprintf("Debug Disabled\n");
-                }
-            }
-            return false;
-*/
     }
     return true;
 }
 
+enum {
+    TD_CAPS_LAYER,
+};
+
+typedef enum {
+    TD_NONE,
+    TD_SINGLE_TAP,
+    TD_SINGLE_HOLD,
+    TD_DOUBLE_TAP,
+    TD_DOUBLE_HOLD,
+} td_state_t;
+
+static td_state_t td_state;
+
+td_state_t cur_dance(tap_dance_state_t *state) {
+    if (state->count == 1) {
+        if (state->interrupted || !state->pressed) {
+            return TD_SINGLE_TAP;
+        } else {
+            return TD_SINGLE_HOLD;
+        }
+    } else if (state->count == 2) {
+        if (state->interrupted || !state->pressed) {
+            return TD_DOUBLE_TAP;
+        } else {
+            return TD_DOUBLE_HOLD;
+        }
+    }
+    return TD_NONE;
+}
+
+void td_finished(tap_dance_state_t *state, void *user_data) {
+    td_state = cur_dance(state);
+    switch (td_state) {
+        case TD_SINGLE_HOLD:
+            // Enable Layer 1 and register Caps Lock
+            layer_on(1);
+            register_code(KC_CAPS);
+            break;
+        case TD_DOUBLE_HOLD:
+            // Enable Layer 2 only
+            layer_on(2);
+            break;
+        // Optionally handle other cases
+        default:
+            break;
+    }
+}
+
+void td_reset(tap_dance_state_t *state, void *user_data) {
+    switch (td_state) {
+        case TD_SINGLE_HOLD:
+            // Disable Layer 1 and unregister Caps Lock
+            layer_off(1);
+            unregister_code(KC_CAPS);
+            break;
+        case TD_DOUBLE_HOLD:
+            // Disable Layer 2
+            layer_off(2);
+            break;
+        default:
+            break;
+    }
+}
+
+tap_dance_action_t tap_dance_actions[] = {
+    [TD_CAPS_LAYER] = ACTION_TAP_DANCE_FN_ADVANCED(NULL, td_finished, td_reset),
+};
+
+
+
+// Tap Dance End
 // Combos Start
 enum combos {
     CL_PRN,
@@ -520,12 +532,12 @@ enum combos {
 
 const uint16_t PROGMEM l_prn[] = {KC_E, KC_W, COMBO_END};
 const uint16_t PROGMEM r_prn[] = {KC_I, KC_O, COMBO_END};
-const uint16_t PROGMEM l_cbr[] = {KC_D, KC_F, COMBO_END};
-const uint16_t PROGMEM r_cbr[] = {KC_J, KC_K, COMBO_END};
+const uint16_t PROGMEM l_cbr[] = {KC_D, KC_S, COMBO_END};
+const uint16_t PROGMEM r_cbr[] = {KC_L, KC_K, COMBO_END};
 const uint16_t PROGMEM l_brc[] = {KC_C, KC_X, COMBO_END};
 const uint16_t PROGMEM r_brc[] = {KC_DOT, KC_COMM, COMBO_END};
-const uint16_t PROGMEM l_del[] = {KC_F, KC_G, COMBO_END};
-const uint16_t PROGMEM r_bsp[] = {KC_H, KC_J, COMBO_END};
+const uint16_t PROGMEM l_del[] = {KC_F, KC_D, COMBO_END};
+const uint16_t PROGMEM r_bsp[] = {KC_K, KC_J, COMBO_END};
 const uint16_t PROGMEM l_mmb[] = {L_MB1, L_MB2, COMBO_END};
 const uint16_t PROGMEM r_mmb[] = {R_MB1, R_MB2, COMBO_END};
 const uint16_t PROGMEM m_mmb[] = {ML_MB1, ML_MB2, COMBO_END};
@@ -547,6 +559,24 @@ combo_t key_combos[COMBO_COUNT] = {
 
 };
 // Combos End
+// Set custom Tapping Term
+uint16_t get_tapping_term(
+    uint16_t        keycode,
+    keyrecord_t*    record) {
+
+    switch (keycode) {
+        case LT(2, KC_SPC):  // Layer tap key example
+            return 500;
+        case LT(1, KC_CAPS):  // Layer tap key example
+            return 500;
+        case TD(TD_CAPS_LAYER):
+            return 250;  // Custom tapping term for this key
+        default:
+            return TAPPING_TERM;
+    }
+    // Requires #define TAPPING_TERM in config.h
+    // #define TAPPING_TERM_PER_KEY , to set tapping term per key if needed
+}
 
 const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
 [0] = LAYOUT(
@@ -563,17 +593,17 @@ const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
 /* |            |            |            |            |    MB2  [ MB3 ]  MB1    |                                      |    MB1  [ MB3 ]  MB2    |            |            |            |            |
    |------------+------------+------------+------------+------------+------------|                                      |------------+------------+------------+------------+------------+------------|
         lShift        A            S            D            F            G                                                    H           J            K             L            ;           '
-                                                     [ { ]       [ DEL ]                                                         [ BCSPC ]      [ } ]
+                                        [ { ]       [ DEL ]                                                                                   [ BCSPC ]      [ } ]
 */       KC_LSFT,        KC_A,        KC_S,        KC_D,        KC_F,        KC_G,                                               KC_H,        KC_J,        KC_K,        KC_L,     KC_SCLN,     KC_QUOT,
 /* |            |            |            |            |            |            |-------------.          ,-------------|            |            |            |            |            |            |
    |------------+------------+------------+------------+------------+------------|     [       |          |      ]      |------------+------------+------------+------------+------------+------------|
         LCtrl         Z            X            C            V            B                                                    N           M            ,             .            /         Enter
                                         [ [ ]                                          L1                       L2                                           [ ] ]
-*/       KC_LCTL,        KC_Z,        KC_X,        KC_C,        KC_V,        KC_B,       L_LBRC,                  R_RBRC,        KC_N,        KC_M,     KC_COMM,      KC_DOT,     KC_SLSH,MT(MOD_RSFT,KC_ENT),
+*/       KC_LCTL,        KC_Z,        KC_X,        KC_C,        KC_V,        KC_B,       TD(TD_CAPS_LAYER),        KC_NO,        KC_N,        KC_M,     KC_COMM,      KC_DOT,     KC_SLSH,MT(MOD_RSFT,KC_ENT),
 /* |            |            |            |            |            |            |-------------|          |-------------|            |            |            |            |            |   RShift   |
    `------------+------------+---------+--+---------+--+---------+--+------------/             /          \             \------------+--+---------+--+---------+--+---------+------------+------------'
-          LC_LS                             LGUI         LAlt         Caps           Space                      Space           Space      Backspace       ESC
-          LS_LC                        |            |    Del     |   L1 / L2  | /             /            \             \ |  L2 / L1   |            |            |
+                                            LGUI         LAlt         Caps           Space                      Space           Space      Backspace       ESC
+                                       |            |    Del     |   L1 / L2  | /             /            \             \ |  L2 / L1   |            |            |
                                        |            |            |            |/             /              \             \|            |            |            |
 */                                      KC_LGUI,MT(MOD_LALT,KC_DEL),  I_CAP_L1,     O_CAP_L1,                       KC_SPC,LT(2, KC_SPC),     KC_BSPC,  BW_ESC_GRV
 /*                                     `------------+------------+------------+-------------'                '-------------+------------+------------+------------'
@@ -598,13 +628,13 @@ const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
    |------------+------------+------------+------------+------------+------------|     Play    |          |     Mute    |------------+------------+------------+------------+------------+------------|
         LCtrl        Undo         Cut          Copy         Paste        Next                                                              1            2            3             .         Enter
 
-*/       KC_LCTL,     KC_UNDO,      KC_CUT,     KC_COPY,    KC_PASTE,       NX_PR,      KC_MPLY,                 KC_MUTE,       KC_NO,       KC_P1,       KC_P2,       KC_P3,     KC_PDOT,     KC_TRNS,
+*/       KC_LCTL,     KC_UNDO,      KC_CUT,     KC_COPY,    KC_PASTE,       NX_PR,     KC_NO,                 KC_MUTE,       KC_NO,       KC_P1,       KC_P2,       KC_P3,     KC_PDOT,     KC_TRNS,
 /* |            |            |            |            |            |  Previous  |-------------|          |-------------|            |            |            |            |            |   RShift   |
    `------------+------------+---------+--+---------+--+---------+--+------------/             /          \             \------------+--+---------+--+---------+--+---------+------------+------------'
-                                                                      Space          Space                       Tab             Tab            0
-                                       |            |            |     L2     | /             /            \             \ |     L3     |            |            |
+                                                                      Space          Space                       Tab             L3            0
+                                       |            |            |     L2     | /             /            \             \ |            |            |            |
                                        |            |            |            |/             /              \             \|            |            |            |
-*/ 	                                         KC_TRNS,     KC_TRNS,    I_SPC_L2,     O_SPC_L2,                     BW_TAB_L3,   BW_TAB_L3,       KC_P0,     KC_TRNS
+*/ 	                                         KC_TRNS,     KC_TRNS,    I_SPC_L2,     O_SPC_L2,                        KC_SPC, LT(4,KC_NO),       KC_P0,     KC_TRNS
 /*                                     `------------+------------+------------+-------------'                '-------------+------------+------------+------------'
 */),
 [2] = LAYOUT(
@@ -627,13 +657,13 @@ const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
    |------------+------------+------------+------------+------------+------------|             |          |             |------------+------------+------------+------------+------------+------------|
         LCtrl        Undo         Cut          Copy         Paste       Next                                                              Undo         Copy        Delete       Volume       Enter
                                                                                                                                                                                  Down
-*/       KC_LCTL,     KC_UNDO,      KC_CUT,     KC_COPY,    KC_PASTE,       NX_PR,      KC_MPLY,                   KC_NO,       KC_NO,       UN_RE,       CO_PA,       DE_CU,       VD_VU,     KC_TRNS,
+*/       KC_LCTL,     KC_UNDO,      KC_CUT,     KC_COPY,    KC_PASTE,       NX_PR,      KC_NO,                   KC_NO,       KC_NO,       UN_RE,       CO_PA,       DE_CU,       VD_VU,     KC_TRNS,
 /* |            |            |            |            |            |  Previous  |-------------|          |-------------|            |    Redo    |    Paste   |     Cut    |     Up     |   RShift   |
    `------------+------------+---------+--+---------+--+---------+--+------------/             /          \             \------------+--+---------+--+---------+--+---------+------------+------------'
-                                                                      Caps            Caps                      Caps            Caps
-                                       |            |            |     L3     | /             /            \    Space    \ |     L1     |            |            |
+                                                                       L3              L3                       Space           Caps
+                                       |            |            |            | /             /            \             \ |     L1     |            |            |
                                        |            |            |            |/             /              \             \|            |            |            |
-*/ 	                                         KC_TRNS,     KC_TRNS,   BW_CAP_L3,    BW_CAP_L3,                      O_CAP_L1,    I_CAP_L1,     KC_TRNS,     KC_TRNS
+*/ 	                                         KC_TRNS,     KC_TRNS, LT(4,KC_NO),  LT(4,KC_NO),                        KC_SPC,    I_CAP_L1,     KC_TRNS,     KC_TRNS
 /*                                     `------------+------------+------------+-------------'                '-------------+------------+------------+------------'
 */),
 [3] = LAYOUT(
@@ -878,8 +908,8 @@ void matrix_scan_user(void) {
         BS_REL = false;
     }
 
-    if (TLAY_PEN) {
-        uint16_t tlay_elapsed = timer_elapsed(TLAY_REL);
+    if (LJ_ACTIVE) {
+        uint16_t tlay_elapsed = timer_elapsed(LJ_RELEASE);
         if (tlay_elapsed > 200) {
             layer_jump_timeout();
         }
@@ -1086,19 +1116,19 @@ static report_mouse_t handle_mouse_mode_rgb(report_mouse_t left_report, report_m
 // Custom Auto Mouse Layer
 static report_mouse_t auto_mouse_layer_handler(report_mouse_t mouse_report) {
 
-    uint16_t elapsed = timer_elapsed(ATML_Timer);
+    uint16_t elapsed = timer_elapsed(ATML_TIMER);
     if (mouse_report.x || mouse_report.y) {
-        if (!ATML_Active) {
+        if (!ATML_ACTIVE) {
             layer_on(3);
-            ATML_Active = true;
+            ATML_ACTIVE = true;
         }
         if (elapsed > TIMER_LIMITER) {
-            ATML_Timer = timer_read();
+            ATML_TIMER = timer_read();
         }
     } else if (elapsed > ATML_TIMEOUT) {
-        if (ATML_Active) {
+        if (ATML_ACTIVE) {
             layer_off(3);
-            ATML_Active = false;
+            ATML_ACTIVE = false;
         }
     }
     return mouse_report;
@@ -1170,6 +1200,10 @@ report_mouse_t pointing_device_task_combined_user(report_mouse_t left_report, re
 QK_COMBO_ON	    CM_ON	Turns on Combo feature
 QK_COMBO_OFF	CM_OFF	Turns off Combo feature
 
+9.02.2025
+-Removed some custom functions after figuring out built-in tap-hold keys (The docs are sometimes confusing and not clear on how things work, and it was easier to create my own function or i'm just stupid, i think i'm just stupid)
+-Removed repetative assignments in rgb handler
+-Added tap dance handlers
 
 9.01.2025
 -Added key combos
