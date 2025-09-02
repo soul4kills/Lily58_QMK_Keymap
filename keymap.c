@@ -72,6 +72,9 @@ uint8_t     KEY_MATRIX;
 #define CL_WIND     A(KC_F4)            // CLOSE WINDOW
 #define VD_LEFT     G(C(KC_LEFT))       // VIRTUAL DESKTOP LEFT
 #define VD_RIGHT    G(C(KC_RIGHT))      // VIRTUAL DESKTOP RIGHT
+#define MIN_WIND    G(KC_DOWN)          // MAXIMIZE WINDOW
+#define MAX_WIND    G(KC_UP)            // MINIMIZE WINDOW
+
 
 // Structs for handle_mouse_buttons()
 typedef enum mouse_button_states {
@@ -511,20 +514,22 @@ enum combos {
     C_BSP,
     CL_MMB,
     CR_MMB,
-    CM_MMB
+    CM_MMB,
+    C_ESC
 };
 
-const uint16_t PROGMEM l_prn[] = {KC_E, L_MB2, COMBO_END};
-const uint16_t PROGMEM r_prn[] = {KC_I, R_MB2, COMBO_END};
+const uint16_t PROGMEM l_prn[] = {KC_E, KC_W, COMBO_END};
+const uint16_t PROGMEM r_prn[] = {KC_I, KC_O, COMBO_END};
 const uint16_t PROGMEM l_cbr[] = {KC_D, KC_F, COMBO_END};
 const uint16_t PROGMEM r_cbr[] = {KC_J, KC_K, COMBO_END};
-const uint16_t PROGMEM l_brc[] = {KC_C, KC_V, COMBO_END};
-const uint16_t PROGMEM r_brc[] = {KC_M, KC_COMM, COMBO_END};
+const uint16_t PROGMEM l_brc[] = {KC_C, KC_X, COMBO_END};
+const uint16_t PROGMEM r_brc[] = {KC_DOT, KC_COMM, COMBO_END};
 const uint16_t PROGMEM l_del[] = {KC_F, KC_G, COMBO_END};
 const uint16_t PROGMEM r_bsp[] = {KC_H, KC_J, COMBO_END};
 const uint16_t PROGMEM l_mmb[] = {L_MB1, L_MB2, COMBO_END};
 const uint16_t PROGMEM r_mmb[] = {R_MB1, R_MB2, COMBO_END};
 const uint16_t PROGMEM m_mmb[] = {ML_MB1, ML_MB2, COMBO_END};
+const uint16_t PROGMEM l_esc[] = {S1_ESC, S2_1, COMBO_END};
 
 combo_t key_combos[COMBO_COUNT] = {
     [CL_PRN] = COMBO(l_prn, KC_LPRN),
@@ -538,6 +543,7 @@ combo_t key_combos[COMBO_COUNT] = {
     [CL_MMB] = COMBO(l_mmb, KC_MS_BTN3),
     [CR_MMB] = COMBO(r_mmb, KC_MS_BTN3), // 10
     [CM_MMB] = COMBO(m_mmb, KC_MS_BTN3),
+    [C_ESC] = COMBO(l_esc, BW_ESC_GRV),
 
 };
 // Combos End
@@ -547,14 +553,14 @@ const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
 /* QWERTY
    ,------------+------------+------------+------------+------------+------------.                                      ,------------+------------+------------+------------+------------+------------.
    |     1      |     2      |     3      |     4      |     5      |     6      |                                      |      7     |     8      |     9      |     10     |     11     |     12     |
-
+             [ Esc ]
 */        S1_ESC,        S2_1,        S3_2,        S4_3,        S5_4,        S6_5,                                               KC_7,        KC_8,        KC_9,        KC_0,     KC_MINS,    PLS_BSPC,
 /* |    Esc     |     1      |     2      |     3      |     4      |     5      |                                      |            |            |            |            |            |     +      |
    |------------+------------+------------+------------+------------+------------|                                      |------------+------------+------------+------------+------------+------------|
          Tab          Q            W            E            R            T                                                    Y           U            I            O            P            -
-                                                     [ ( ]                                                                                      [ ) ]
+                                        [ ( ]                                                                                                                [ ) ]
 */        KC_TAB,        KC_Q,        KC_W,        KC_E,       L_MB2,       L_MB1,                                              R_MB1,       R_MB2,        KC_I,        KC_O,        KC_P,     KC_BSLS,
-/* |            |            |            |            |     MB2    |     MB1    |                                      |     MB1    |     MB2    |            |            |            |            |
+/* |            |            |            |            |    MB2  [ MB3 ]  MB1    |                                      |    MB1  [ MB3 ]  MB2    |            |            |            |            |
    |------------+------------+------------+------------+------------+------------|                                      |------------+------------+------------+------------+------------+------------|
         lShift        A            S            D            F            G                                                    H           J            K             L            ;           '
                                                      [ { ]       [ DEL ]                                                         [ BCSPC ]      [ } ]
@@ -562,7 +568,7 @@ const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
 /* |            |            |            |            |            |            |-------------.          ,-------------|            |            |            |            |            |            |
    |------------+------------+------------+------------+------------+------------|     [       |          |      ]      |------------+------------+------------+------------+------------+------------|
         LCtrl         Z            X            C            V            B                                                    N           M            ,             .            /         Enter
-                                                     [ [ ]                                 L1                       L2                          [ ] ]
+                                        [ [ ]                                          L1                       L2                                           [ ] ]
 */       KC_LCTL,        KC_Z,        KC_X,        KC_C,        KC_V,        KC_B,       L_LBRC,                  R_RBRC,        KC_N,        KC_M,     KC_COMM,      KC_DOT,     KC_SLSH,MT(MOD_RSFT,KC_ENT),
 /* |            |            |            |            |            |            |-------------|          |-------------|            |            |            |            |            |   RShift   |
    `------------+------------+---------+--+---------+--+---------+--+------------/             /          \             \------------+--+---------+--+---------+--+---------+------------+------------'
@@ -587,12 +593,12 @@ const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
    |------------+------------+------------+------------+------------+------------|                                      |------------+------------+------------+------------+------------+------------|
        LShift        Redo         Left         Down         Right                                                              *           4            5            6             +
 
-*/       KC_LSFT,     C(KC_Y),     KC_LEFT,     KC_DOWN,     KC_RGHT,       KC_NO,                                            KC_ASTR,       KC_P4,       KC_P5,       KC_P6,     KC_PPLS,       KC_NO,
+*/       KC_LSFT,    KC_AGAIN,     KC_LEFT,     KC_DOWN,     KC_RGHT,       KC_NO,                                            KC_ASTR,       KC_P4,       KC_P5,       KC_P6,     KC_PPLS,       KC_NO,
 /* |            |            |            |            |            |            |-------------.          ,-------------|            |            |            |            |            |            |
    |------------+------------+------------+------------+------------+------------|     Play    |          |     Mute    |------------+------------+------------+------------+------------+------------|
         LCtrl        Undo         Cut          Copy         Paste        Next                                                              1            2            3             .         Enter
 
-*/       KC_LCTL,     C(KC_Z),     C(KC_X),     C(KC_C),     C(KC_V),       NX_PR,      KC_MPLY,                 KC_MUTE,       KC_NO,       KC_P1,       KC_P2,       KC_P3,     KC_PDOT,     KC_TRNS,
+*/       KC_LCTL,     KC_UNDO,      KC_CUT,     KC_COPY,    KC_PASTE,       NX_PR,      KC_MPLY,                 KC_MUTE,       KC_NO,       KC_P1,       KC_P2,       KC_P3,     KC_PDOT,     KC_TRNS,
 /* |            |            |            |            |            |  Previous  |-------------|          |-------------|            |            |            |            |            |   RShift   |
    `------------+------------+---------+--+---------+--+---------+--+------------/             /          \             \------------+--+---------+--+---------+--+---------+------------+------------'
                                                                       Space          Space                       Tab             Tab            0
@@ -606,7 +612,7 @@ const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
    ,------------+------------+------------+------------+------------+------------.                                      ,------------+------------+------------+------------+------------+------------.
    |   Reset    |    Auto    |    Combo   |            |            |            |                                      |    Left    |    Right   |    Close   |     Min    |    Max     |   Close    |
       EEPROM      Mouse Layer    Toggle                                                                                      Tab           Tab          Tab         Window      Window       Window
-*/        EE_CLR,     ML_AUTO,     CM_TOGG,       KC_NO,       KC_NO,       KC_NO,                                             LTB_BK,      RTB_FW,       CT_UN,  G(KC_DOWN),    G(KC_UP),       CW_FS,
+*/        EE_CLR,     ML_AUTO,     CM_TOGG,       KC_NO,       KC_NO,       KC_NO,                                             LTB_BK,      RTB_FW,       CT_UN,    MIN_WIND,    MAX_WIND,       CW_FS,
 /* |            |            |            |            |            |            |                                      |    Back    |   Forth    |  Undo Tab  |   New Tab  |   Refresh? | Fullscreen |
    |------------+------------+------------+------------+------------+------------|                                      |------------+------------+------------+------------+------------+------------|
        Button    Virt Desktop                   Up         Volume       Volume                                                                          Up                      Cycle
@@ -615,13 +621,13 @@ const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
 /* |            |VDesk Right |            |            |            |            |                                      |            |            |            |            | Tab Window |            |
    |------------+------------+------------+------------+------------+------------|                                      |------------+------------+------------+------------+------------+------------|
        LShift        Redo         Left        Down          Right                                                            Cycle        Left         Down         Right       RCtrl        Audio
-                                                                                                                            Window                                                            Menu
-*/       KC_LSFT,     C(KC_Y),     KC_LEFT,     KC_DOWN,     KC_RGHT,       KC_NO,                                              CW_LW,     KC_LEFT,     KC_DOWN,     KC_RGHT,     KC_RCTL,LCTL(RGUI(KC_V)),
+                                                                                                                            Window                                             RShift         Menu
+*/       KC_LSFT,    KC_AGAIN,     KC_LEFT,     KC_DOWN,     KC_RGHT,       KC_NO,                                              CW_LW,     KC_LEFT,     KC_DOWN,     KC_RGHT,   RCS(KC_NO),    AUD_MENU,
 /* |            |            |            |            |            |            |-------------.          ,-------------| Last Window|            |            |            |            |            |
    |------------+------------+------------+------------+------------+------------|             |          |             |------------+------------+------------+------------+------------+------------|
         LCtrl        Undo         Cut          Copy         Paste       Next                                                              Undo         Copy        Delete       Volume       Enter
                                                                                                                                                                                  Down
-*/       KC_LCTL,     C(KC_Z),     C(KC_X),     C(KC_C),     C(KC_V),       NX_PR,      KC_MPLY,                   KC_NO,       KC_NO,       UN_RE,       CO_PA,       DE_CU,       VD_VU,     KC_TRNS,
+*/       KC_LCTL,     KC_UNDO,      KC_CUT,     KC_COPY,    KC_PASTE,       NX_PR,      KC_MPLY,                   KC_NO,       KC_NO,       UN_RE,       CO_PA,       DE_CU,       VD_VU,     KC_TRNS,
 /* |            |            |            |            |            |  Previous  |-------------|          |-------------|            |    Redo    |    Paste   |     Cut    |     Up     |   RShift   |
    `------------+------------+---------+--+---------+--+---------+--+------------/             /          \             \------------+--+---------+--+---------+--+---------+------------+------------'
                                                                       Caps            Caps                      Caps            Caps
@@ -635,22 +641,22 @@ const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
    ,------------+------------+------------+------------+------------+------------.                                      ,------------+------------+------------+------------+------------+------------.
    |   Reset    |    Auto    |            |            |            |            |                                      |    Left    |    Right   |    Close   |     Min    |    Max     |   Close    |
       EEPROM      Mouse Layer                                                                                                Tab           Tab          Tab        Window       Window       Window
-*/QK_CLEAR_EEPROM,    ML_AUTO,       KC_NO,       KC_NO,       KC_NO,       KC_NO,                                            LTB_BK,      RTB_FW,        CT_UN,  G(KC_DOWN),    G(KC_UP),       CW_FS,
+*/QK_CLEAR_EEPROM,    ML_AUTO,       KC_NO,       KC_NO,       KC_NO,       KC_NO,                                            LTB_BK,      RTB_FW,        CT_UN,    MIN_WIND,    MAX_WIND,       CW_FS,
 /* |            |            |            |            |            |            |                                      |    Back    |   Forth    |  Undo Tab  |            |            | Fullscreen |
    |------------+------------+------------+------------+------------+------------|                                      |------------+------------+------------+------------+------------+------------|
        Button    Virt Desktop                   Up           MB2          MB1                                                MB1          MB2           Up                      Cycle
-        Swap         Left                                                                                                                                                       Taskbar
-*/        B_SWAP,       DL_DR,       KC_NO,       KC_UP,     ML_MB2,       ML_MB1,                                             ML_MB1,       ML_MB2,       KC_UP,       KC_NO,       CT_TW,       KC_NO,
+        Swap         Left                                        [ MB3 ]                                                          [ MB3 ]                                       Taskbar
+*/        B_SWAP,       DL_DR,       KC_NO,       KC_UP,     ML_MB2,       ML_MB1,                                             ML_MB1,      ML_MB2,       KC_UP,       KC_NO,       CT_TW,       KC_NO,
 /* |            |VDesk Right |            |            |            |            |                                      |            |            |            |            | Tab Window |            |
    |------------+------------+------------+------------+------------+------------|                                      |------------+------------+------------+------------+------------+------------|
        LShift        Redo         Left        Down          Right      Volume                                                Cycle        Left         Down         Right       RCtrl       Audio
                                                                         Down                                                Window                                                           Menu
-*/       KC_LSFT,     C(KC_Y),     KC_LEFT,     KC_DOWN,     KC_RGHT,       VD_VU,                                              CW_LW,     KC_LEFT,     KC_DOWN,      KC_RGHT,     KC_RCTL,LCTL(RGUI(KC_V)),
+*/       KC_LSFT,    KC_AGAIN,     KC_LEFT,     KC_DOWN,     KC_RGHT,       VD_VU,                                              CW_LW,     KC_LEFT,     KC_DOWN,     KC_RGHT,     KC_RCTL,    AUD_MENU,
 /* |            |            |            |            |            |    Up      |-------------.          ,-------------| Last Window|            |            |            |            |            |
    |------------+------------+------------+------------+------------+------------|GROWTH_FACTOR|          |             |------------+------------+------------+------------+------------+------------|
         LCtrl        Undo         Cut          Copy         Paste       Next                                                              Undo         Copy        Delete       Volume       Enter
                                                                                                                                                                                  Down
-*/       KC_LCTL,     C(KC_Z),     C(KC_X),     C(KC_C),     C(KC_V),       NX_PR,      KC_MPLY,                   KC_NO,       KC_NO,       UN_RE,       CO_PA,       DE_CU,       VD_VU,     KC_TRNS,
+*/       KC_LCTL,     KC_UNDO,      KC_CUT,     KC_COPY,    KC_PASTE,       NX_PR,      KC_MPLY,                   KC_NO,       KC_NO,       UN_RE,       CO_PA,       DE_CU,       VD_VU,     KC_TRNS,
 /* |            |            |            |            |            |  Previous  |-------------|          |-------------|            |    Redo    |    Paste   |     Cut    |     Up     |   RShift   |
    `------------+------------+---------+--+---------+--+---------+--+------------/             /          \             \------------+--+---------+--+---------+--+---------+------------+------------'
 
