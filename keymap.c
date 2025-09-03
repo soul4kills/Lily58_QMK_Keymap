@@ -28,19 +28,24 @@
 // bool debug_ms_reports = false;       // Debug mouse reports
 
 // Example build commands:
-// make lily58/rev1:via:flash -e POINTING_DEVICE=trackball_trackball -e POINTING_DEVICE_POSITION=left -j8
-// make lily58/rev1:via:flash -e POINTING_DEVICE=trackball_trackball -e POINTING_DEVICE_POSITION=right -j8
+// make lily58/rev1:via:flash -e POINTING_DEVICE=trackball_trackball -e POINTING_DEVICE_POSITION=left -j 8
+// make lily58/rev1:via:flash -e POINTING_DEVICE=trackball_trackball -e POINTING_DEVICE_POSITION=right -j 8
 
 uint8_t     LJ_LAYER;
 uint16_t    LJ_RELEASE;
 bool        LJ_ACTIVE = false;
+// Track if delayed layer change is pending per timer pointer
+bool        LJ_PENDING = false;
+uint8_t     LJ_DELAYED_LAYER = 0;
+uint16_t    LJ_TIMER = 0;
+#define     LAYER_CHANGE_DELAY 200  // Delay before switching layers
 
 bool        BTN_SWAP = false;       // If true, swap the behavior of O_ & I_ keycodes
 float       GROWTH_FACTOR = 8;      // Moved here to retain value across key presses
 uint8_t     RGB_CURRENT;            // Holds current RGB color, Used in mouse handle_mouse_mode_rgb() to prevent unecessary calls
 
-bool        RGB_MS_ACTIVE = false;    // RGB Emulation Mode Arrow/Scroll
-uint16_t    RGB_MS_TIMER;            // Holds Last Move Time
+bool        RGB_MS_ACTIVE = false;  // RGB Emulation Mode Arrow/Scroll
+uint16_t    RGB_MS_TIMER;           // Holds Last Move Time
 // Auto Mouse Layer Variables
 bool        ATML = false;           // Off by Default
 bool        ATML_ACTIVE = false;
@@ -75,7 +80,6 @@ uint8_t     KEY_MATRIX;
 #define MIN_WIND    G(KC_DOWN)          // MAXIMIZE WINDOW
 #define MAX_WIND    G(KC_UP)            // MINIMIZE WINDOW
 
-
 // Structs for handle_mouse_buttons()
 typedef enum mouse_button_states {
     MODE_OFF,
@@ -102,38 +106,31 @@ static void layer_jump_timeout(void) {
     LJ_ACTIVE = false;
 }
 
-#define LAYER_CHANGE_DELAY 200  // Delay time in milliseconds before switching layers
-
-// Track if delayed layer change is pending per timer pointer
-static bool layer_change_pending = false;
-static uint8_t delayed_layer = 0;
-static uint16_t layer_change_timer = 0;
-
 // Process delayed layer change when delay expires
-void delayed_layer_change(void) {
-    if (layer_change_pending && timer_elapsed(layer_change_timer) >= LAYER_CHANGE_DELAY) {
+void layer_jump_delay_handler(void) {
+    if (LJ_PENDING && timer_elapsed(LJ_TIMER) >= LAYER_CHANGE_DELAY) {
         // Turn off the other layer and enable the delayed one
-        layer_off(delayed_layer == 1 ? 2 : 1);
-        layer_on(delayed_layer);
-        LJ_LAYER = delayed_layer;
+        layer_off(LJ_DELAYED_LAYER == 1 ? 2 : 1);
+        layer_on(LJ_DELAYED_LAYER);
+        LJ_LAYER = LJ_DELAYED_LAYER;
         LJ_ACTIVE = false;
-        layer_change_pending = false;
+        LJ_PENDING = false;
     }
 }
 
 static bool layer_jump_handler(
-    uint16_t tap_key,      // keycode to send on tap
-    uint16_t alt_key,      // keycode to register/unregister on hold
-    uint8_t layer,         // layer to activate on hold
-    uint16_t* timer,       // single shared timer pointer for tap and delay
-    bool condition,        // true = enter layer/hold branch, false = tap branch
-    keyrecord_t* record
-) {
+    uint16_t        tap_key,        // keycode to send on tap
+    uint16_t        alt_key,        // keycode to register/unregister on hold
+    uint8_t         layer,          // layer to activate on hold
+    uint16_t*       timer,          // single shared timer pointer for tap and delay
+    bool            condition,      // true = enter layer/hold branch, false = tap branch
+    keyrecord_t* record) {
+
     if (record->event.pressed) {
         if (condition) {
-            delayed_layer = layer;
-            layer_change_timer = *timer = timer_read();
-            layer_change_pending = true;
+            LJ_DELAYED_LAYER = layer;
+            LJ_TIMER = *timer = timer_read();
+            LJ_PENDING = true;
             LJ_ACTIVE = false;
         } else {
             register_code16(alt_key);
@@ -145,7 +142,7 @@ static bool layer_jump_handler(
 
             if (timer_elapsed(*timer) < BW_TAP_TIME) {
                 tap_code16(tap_key);
-                layer_change_pending = false;  // Cancel delayed layer change on tap
+                LJ_PENDING = false;  // Cancel delayed layer change on tap
             }
         } else {
             unregister_code16(alt_key);
@@ -459,7 +456,7 @@ bool process_record_user(
                 BS_REL = true;
                 right_button.mode = MODE_OFF;
             }
-            return false; // Skip default handling
+            return false;
     }
     return true;
 }
@@ -829,7 +826,6 @@ layer_state_t layer_state_set_user(layer_state_t state) {
 void matrix_scan_user(void) {
     if (!is_keyboard_master()) return;
 
-    // Your existing BS_HOL logic
     if (BS_HOL) {
         uint16_t bs_elapsed = timer_elapsed(BS_TIM);
         if (bs_elapsed > TAPPING_TERM) {
@@ -847,7 +843,6 @@ void matrix_scan_user(void) {
         }
     }
 
-    // Your existing BS_REL logic
     if (BS_REL) {
         switch(KEY_MATRIX) {
             case 0:
@@ -863,11 +858,10 @@ void matrix_scan_user(void) {
     }
 
     // Process delayed layer change if timer elapsed
-    if (layer_change_pending) {
-        delayed_layer_change();
+    if (LJ_PENDING) {
+        layer_jump_delay_handler();
     }
 
-    // Existing LJ_ACTIVE related timeout logic
     if (LJ_ACTIVE) {
         uint16_t tlay_elapsed = timer_elapsed(LJ_RELEASE);
         if (tlay_elapsed > 200) {
@@ -891,7 +885,7 @@ bool led_update_user(led_t led_state) {
     if (layer_state_is(0)) { // Only update on layer 0
         caps_rgb_helper(led_state.caps_lock);
     }
-    return true; // Prevent default handler if applicable
+    return true;
     // Requires #define SPLIT_LED_STATE_ENABLE in config.h, OR maybe not, still works without it.
 }
 
