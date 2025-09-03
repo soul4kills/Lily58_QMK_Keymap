@@ -51,7 +51,7 @@ bool        BS_REL;
 uint16_t    BS_TIM;
 uint8_t     KEY_MATRIX;
 // Global limiter to prevent excessive timer_read()'s
-#define     TIMER_LIMITER 501
+#define     TIMER_LIMITER 500
 #define     ATML_TIMEOUT 2000       // Auto Mouse Layer Timeout
 #define     RGB_MS_TIMEOUT 2000     // Mouse Mode Timeout
 
@@ -131,7 +131,7 @@ static bool layer_jump_handler(
 ) {
     if (record->event.pressed) {
         if (condition) {
-            delayed_layer = layer;4
+            delayed_layer = layer;
             layer_change_timer = *timer = timer_read();
             layer_change_pending = true;
             LJ_ACTIVE = false;
@@ -176,8 +176,9 @@ static bool tap_hold_handler(
             if (mb && timer_elapsed(RGB_MS_MOVE) > TIMER_LIMITER) {
                 RGB_MS_MOVE = timer_read();
             }
-            if (ATML_ACTIVE) {
+            if (ATML_ACTIVE && timer_elapsed(ATML_TIMER) > TIMER_LIMITER) {
                 ATML_TIMER = timer_read();
+                RGB_MS_MODE = false;
             }
         }
     } else {
@@ -335,17 +336,17 @@ bool process_record_user(
         case L_MB2:
             return tap_hold_handler(KC_R, KC_MS_BTN2, NULL, !RGB_MS_MODE, true, record);
 
-        case BW_ESC_GRV:
-            return tap_hold_handler(KC_ESC, KC_GRV, &ri1_timer, NULL, NULL, record);
-
-        case PLS_BSPC:
-            return tap_hold_handler(KC_BSPC, KC_EQL, &ri1_timer, NULL, NULL, record);
-
         case ML_MB1:
             return tap_hold_handler(KC_MS_BTN1, KC_MS_BTN1, NULL, !ATML_ACTIVE, false, record);
 
         case ML_MB2:
             return tap_hold_handler(KC_MS_BTN2, KC_MS_BTN2, NULL, !ATML_ACTIVE, false, record);
+
+        case BW_ESC_GRV:
+            return tap_hold_handler(KC_ESC, KC_GRV, &ri1_timer, NULL, NULL, record);
+
+        case PLS_BSPC:
+            return tap_hold_handler(KC_BSPC, KC_EQL, &ri1_timer, NULL, NULL, record);
 
         case LTB_BK: // LEFT TAB & BACKWARD
             return tap_hold_handler(RCS(KC_TAB), KC_WWW_BACK, &rd1_timer, NULL, NULL, record);
@@ -1047,9 +1048,11 @@ static report_mouse_t handle_mouse_mode_rgb(report_mouse_t left_report, report_m
     // Trackball movement active
     if (combined_x || combined_y) {
         // Only update on first activation
-        if (!RGB_MS_MODE || RGB_CURRENT == 0) {
-            set_trackball_rgb_for_layer(m_m_layer);
-            set_trackball_rgb_for_slave(m_s_layer, 0);
+        if (!RGB_MS_MODE) {
+            if (RGB_CURRENT == 0) {
+                set_trackball_rgb_for_layer(m_m_layer);
+                set_trackball_rgb_for_slave(m_s_layer, 0);
+            }
             RGB_MS_MODE = true;
         }
         // Throttle timer updates
