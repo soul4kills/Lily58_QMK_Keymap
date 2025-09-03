@@ -39,8 +39,8 @@ bool        BTN_SWAP = false;       // If true, swap the behavior of O_ & I_ key
 float       GROWTH_FACTOR = 8;      // Moved here to retain value across key presses
 uint8_t     RGB_CURRENT;            // Holds current RGB color, Used in mouse handle_mouse_mode_rgb() to prevent unecessary calls
 
-bool        RGB_MS_MODE = false;    // RGB Emulation Mode Arrow/Scroll
-uint16_t    RGB_MS_MOVE;            // Holds Last Move Time
+bool        RGB_MS_ACTIVE = false;    // RGB Emulation Mode Arrow/Scroll
+uint16_t    RGB_MS_TIMER;            // Holds Last Move Time
 // Auto Mouse Layer Variables
 bool        ATML = false;           // Off by Default
 bool        ATML_ACTIVE = false;
@@ -52,8 +52,8 @@ uint16_t    BS_TIM;
 uint8_t     KEY_MATRIX;
 // Global limiter to prevent excessive timer_read()'s
 #define     TIMER_LIMITER 500
-#define     ATML_TIMEOUT 2000       // Auto Mouse Layer Timeout
-#define     RGB_MS_TIMEOUT 2000     // Mouse Mode Timeout
+#define     ATML_TIMEOUT 1500       // Auto Mouse Layer Timeout
+#define     RGB_MS_TIMEOUT 1500     // Mouse Mode Timeout
 
 // Custom Modded Keys
 #define AUD_MENU    C(G(KC_V))          // AUDIO MENU
@@ -160,7 +160,7 @@ static bool tap_hold_handler(
     uint16_t        alt_key,    // Hold Key
     uint16_t*       timer,      // Timer
     bool            condition,  // Bool Variable
-    bool            mb,         // flag to remove MouseButton timer
+    bool            MB,         // flag to disable MouseButton timer
     keyrecord_t*    record) {
 
     if (timer == NULL) {
@@ -172,13 +172,19 @@ static bool tap_hold_handler(
         } else {
             record->event.pressed ? register_code16(alt_key) : unregister_code16(alt_key);
             // did some janky stuff here, gotta figure it out sometime but
-            // i fixed it by adding " RGB_MS_MODE = false; ". Not ideal, not sure what's causing RGB_MS_MDOE to get stuck true during ATML_ACTIVE
-            if (mb && timer_elapsed(RGB_MS_MOVE) > TIMER_LIMITER) {
-                RGB_MS_MOVE = timer_read();
-            }
-            if (ATML_ACTIVE && timer_elapsed(ATML_TIMER) > TIMER_LIMITER) {
-                ATML_TIMER = timer_read();
-                RGB_MS_MODE = false;
+            // i fixed it by adding " RGB_MS_ACTIVE = false; ". Not ideal, not sure what's causing RGB_MS_MDOE to get stuck true during ATML_ACTIVE
+            if (MB) { // Resets timers for auto swapping keys/layers
+                if (RGB_MS_ACTIVE) {
+                    if (timer_elapsed(RGB_MS_TIMER) > TIMER_LIMITER) {
+                        RGB_MS_TIMER = timer_read();
+                        ATML_ACTIVE = false;
+                    }
+                } else if (ATML_ACTIVE) {
+                    if (timer_elapsed(ATML_TIMER) > TIMER_LIMITER) {
+                        ATML_TIMER = timer_read();
+                        RGB_MS_ACTIVE = false;
+                    }
+                }
             }
         }
     } else {
@@ -205,44 +211,43 @@ enum custom_keycodes {
     O_SPC_L2,               // 65
     I_CAP_L1,               // 66
     I_SPC_L2,               // 67
-    FX_SLV_M,               // 70
-    FX_SLV_P,               // 71
-    R_MB1,                  // 72
-    R_MB2,                  // 73
-    L_MB1,                  // 74
-    L_MB2,                  // 75
-    BW_ESC_GRV,             // 76
-    PLS_BSPC,               // 77
-    B_SWAP,                 // 78
-    BLANK_SPACE_HOLDER,     // 79
-    R_RBRC,                 // 80
-    L_LBRC,                 // 81
-    ML_AUTO,                // 82
-    LC_LS,                  // 83
-    LS_LC,                  // 84
-    S1_ESC,                 // 85
-    S2_1,                   // 86
-    S3_2,                   // 87
-    S4_3,                   // 88
-    S5_4,                   // 89
-    S6_5,                   // 90
-    BSPC_H,                 // 91
-    SEL_H,                  // 92
-    LTB_BK,
-    RTB_FW,
-    CW_LW,
-    NX_PR,
-    CT_UN,
-    DL_DR,
-    UN_RE,
-    CO_PA,
-    ML_MB1,
-    ML_MB2,
-    VD_VU,
-    CT_TW,
-    DE_CU,
-    CW_FS
-
+    FX_SLV_M,               // 68
+    FX_SLV_P,               // 69
+    R_MB1,                  // 70
+    R_MB2,                  // 71
+    L_MB1,                  // 72
+    L_MB2,                  // 73
+    BW_ESC_GRV,             // 74
+    PLS_BSPC,               // 75
+    B_SWAP,                 // 76
+    BLANK_SPACE_HOLDER,     // 77
+    R_RBRC,                 // 78
+    L_LBRC,                 // 79
+    ML_AUTO,                // 80
+    LC_LS,                  // 81
+    LS_LC,                  // 82
+    S1_ESC,                 // 83
+    S2_1,                   // 84
+    S3_2,                   // 85
+    S4_3,                   // 86
+    S5_4,                   // 87
+    S6_5,                   // 88
+    BSPC_H,                 // 89
+    SEL_H,                  // 90
+    LTB_BK,                 // 91
+    RTB_FW,                 // 92
+    CW_LW,                  // 93
+    NX_PR,                  // 94
+    CT_UN,                  // 95
+    DL_DR,                  // 96
+    UN_RE,                  // 97
+    CO_PA,                  // 98
+    ML_MB1,                 // 99
+    ML_MB2,                 // 100
+    VD_VU,                  // 101
+    CT_TW,                  // 102
+    DE_CU,                  // 103
+    CW_FS                   // 104
 //    MS_DEBUG,               // 79
 };
 
@@ -323,24 +328,24 @@ bool process_record_user(
         case S6_5:
             return tap_hold_handler(KC_6, KC_5, NULL, !BTN_SWAP, false, record);
         // Group for mouse buttons with tap-hold behavior
-        // _MB* are toggled by RGB_MS_MODE to change to mouse buttons on mouse move
+        // _MB* are toggled by RGB_MS_ACTIVE to change to mouse buttons on mouse move
         case R_MB1:
-            return tap_hold_handler(KC_Y, KC_MS_BTN1, NULL, !RGB_MS_MODE, true, record);
+            return tap_hold_handler(KC_Y, KC_MS_BTN1, NULL, !RGB_MS_ACTIVE, true, record);
 
         case R_MB2:
-            return tap_hold_handler(KC_U, KC_MS_BTN2, NULL, !RGB_MS_MODE, true, record);
+            return tap_hold_handler(KC_U, KC_MS_BTN2, NULL, !RGB_MS_ACTIVE, true, record);
 
         case L_MB1:
-            return tap_hold_handler(KC_T, KC_MS_BTN1, NULL, !RGB_MS_MODE, true, record);
+            return tap_hold_handler(KC_T, KC_MS_BTN1, NULL, !RGB_MS_ACTIVE, true, record);
 
         case L_MB2:
-            return tap_hold_handler(KC_R, KC_MS_BTN2, NULL, !RGB_MS_MODE, true, record);
+            return tap_hold_handler(KC_R, KC_MS_BTN2, NULL, !RGB_MS_ACTIVE, true, record);
 
         case ML_MB1:
-            return tap_hold_handler(KC_MS_BTN1, KC_MS_BTN1, NULL, !ATML_ACTIVE, false, record);
+            return tap_hold_handler(KC_MS_BTN1, KC_MS_BTN1, NULL, !ATML_ACTIVE, true, record);
 
         case ML_MB2:
-            return tap_hold_handler(KC_MS_BTN2, KC_MS_BTN2, NULL, !ATML_ACTIVE, false, record);
+            return tap_hold_handler(KC_MS_BTN2, KC_MS_BTN2, NULL, !ATML_ACTIVE, true, record);
 
         case BW_ESC_GRV:
             return tap_hold_handler(KC_ESC, KC_GRV, &ri1_timer, NULL, NULL, record);
@@ -349,40 +354,40 @@ bool process_record_user(
             return tap_hold_handler(KC_BSPC, KC_EQL, &ri1_timer, NULL, NULL, record);
 
         case LTB_BK: // LEFT TAB & BACKWARD
-            return tap_hold_handler(RCS(KC_TAB), KC_WWW_BACK, &rd1_timer, NULL, NULL, record);
+            return tap_hold_handler(RCS(KC_TAB), KC_WWW_BACK, &rd1_timer, NULL, true, record);
 
         case RTB_FW: // RIGHT TAB & FORWARD
-            return tap_hold_handler(RCTL(KC_TAB), KC_WWW_FORWARD, &rd1_timer, NULL, NULL, record);
+            return tap_hold_handler(RCTL(KC_TAB), KC_WWW_FORWARD, &rd1_timer, NULL, true, record);
 
         case CT_UN: // CLOSE TAB & UNDO CLOSE TAB
-            return tap_hold_handler(RCTL(KC_W), RCS(KC_T), &rd1_timer, NULL, NULL, record);
+            return tap_hold_handler(RCTL(KC_W), RCS(KC_T), &rd1_timer, NULL, true, record);
 
         case CW_LW: // LAST WINDOW & CYCLE WINDOWS
-            return tap_hold_handler(A(KC_TAB), A(KC_ESC), &rd1_timer, NULL, NULL, record);
+            return tap_hold_handler(A(KC_TAB), A(KC_ESC), &rd1_timer, NULL, true, record);
 
         case NX_PR: // NEXT & PREVIOUS
-            return tap_hold_handler(KC_MNXT, KC_MPRV, &ld1_timer, NULL, NULL, record);
+            return tap_hold_handler(KC_MNXT, KC_MPRV, &ld1_timer, NULL, true, record);
 
         case UN_RE: // UNDO & REDO
-            return tap_hold_handler(C(KC_Z), C(KC_Y), &ld1_timer, NULL, NULL, record);
+            return tap_hold_handler(C(KC_Z), C(KC_Y), &ld1_timer, NULL, true, record);
 
         case CO_PA: // COPY & PASTE
-            return tap_hold_handler(C(KC_C), C(KC_V), &ld1_timer, NULL, NULL, record);
+            return tap_hold_handler(C(KC_C), C(KC_V), &ld1_timer, NULL, true, record);
 
         case VD_VU: // VOLUME DOWN & VOLUME UP
-            return tap_hold_handler(KC_VOLD, KC_VOLU, &rd1_timer, NULL, NULL, record);
+            return tap_hold_handler(KC_VOLD, KC_VOLU, &rd1_timer, NULL, true, record);
 
         case CT_TW: // CYCLE TASKBAR & TAB CYCLE WINDOWS
-            return tap_hold_handler(G(KC_T), LCA(KC_TAB), &rd1_timer, NULL, NULL, record);
+            return tap_hold_handler(G(KC_T), LCA(KC_TAB), &rd1_timer, NULL, true, record);
 
         case DE_CU: // DELETE & CUT
-            return tap_hold_handler(KC_DEL, C(KC_X), &rd1_timer, NULL, NULL, record);
+            return tap_hold_handler(KC_DEL, C(KC_X), &rd1_timer, NULL, true, record);
 
         case CW_FS: // CLOSE WINDOW & FULLSCREEN
-            return tap_hold_handler(A(KC_F4), KC_F11, &rd1_timer, NULL, NULL, record);
+            return tap_hold_handler(A(KC_F4), KC_F11, &rd1_timer, NULL, true, record);
 
         case DL_DR: // VIRTUAL DESKOP LEFT & VIRTUAL DESKTOP RIGHT
-            return tap_hold_handler(G(C(KC_LEFT)), G(C(KC_RIGHT)), &rd1_timer, NULL, NULL, record);
+            return tap_hold_handler(G(C(KC_LEFT)), G(C(KC_RIGHT)), &rd1_timer, NULL, true, record);
 /*
         case MS_DEBUG:
             if (record->event.pressed) {
@@ -545,9 +550,9 @@ const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
                                         [ { ]       [ DEL ]                                                                                   [ BCSPC ]      [ } ]
 */       KC_LSFT,        KC_A,        KC_S,        KC_D,        KC_F,        KC_G,                                               KC_H,        KC_J,        KC_K,        KC_L,     KC_SCLN,     KC_QUOT,
 /* |            |            |            |            |            |            |-------------.          ,-------------|            |            |            |            |            |            |
-   |------------+------------+------------+------------+------------+------------|     [       |          |      ]      |------------+------------+------------+------------+------------+------------|
+   |------------+------------+------------+------------+------------+------------|     Play    |          |    Mute     |------------+------------+------------+------------+------------+------------|
         LCtrl         Z            X            C            V            B                                                    N           M            ,             .            /         Enter
-                                        [ [ ]                                          L1                       L2                                           [ ] ]
+                                        [ [ ]                                                                                                                [ ] ]
 */       KC_LCTL,        KC_Z,        KC_X,        KC_C,        KC_V,        KC_B,LT(1, KC_MPLY),         LT(2, KC_MUTE),        KC_N,        KC_M,     KC_COMM,      KC_DOT,     KC_SLSH,MT(MOD_RSFT,KC_ENT),
 /* |            |            |            |            |            |            |-------------|          |-------------|            |            |            |            |            |   RShift   |
    `------------+------------+---------+--+---------+--+---------+--+------------/             /          \             \------------+--+---------+--+---------+--+---------+------------+------------'
@@ -1048,21 +1053,21 @@ static report_mouse_t handle_mouse_mode_rgb(report_mouse_t left_report, report_m
     // Trackball movement active
     if (combined_x || combined_y) {
         // Only update on first activation
-        if (!RGB_MS_MODE) {
+        if (!RGB_MS_ACTIVE) {
             if (RGB_CURRENT == 0) {
                 set_trackball_rgb_for_layer(m_m_layer);
                 set_trackball_rgb_for_slave(m_s_layer, 0);
             }
-            RGB_MS_MODE = true;
+            RGB_MS_ACTIVE = true;
         }
         // Throttle timer updates
-        if (timer_elapsed(RGB_MS_MOVE) > TIMER_LIMITER) {
-            RGB_MS_MOVE = timer_read();
+        if (timer_elapsed(RGB_MS_TIMER) > TIMER_LIMITER) {
+            RGB_MS_TIMER = timer_read();
         }
 
     // Idle timeout → revert to current layer
-    } else if (RGB_MS_MODE && timer_elapsed(RGB_MS_MOVE) > RGB_MS_TIMEOUT) {
-        RGB_MS_MODE = false;
+    } else if (RGB_MS_ACTIVE && timer_elapsed(RGB_MS_TIMER) > RGB_MS_TIMEOUT) {
+        RGB_MS_ACTIVE = false;
         led_t caps = host_keyboard_led_state();
         uint8_t current_layer = caps.caps_lock ? 6 : get_highest_layer(layer_state);
         set_trackball_rgb_for_slave(current_layer, 2);
