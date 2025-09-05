@@ -120,7 +120,7 @@ static void layer_jump_timeout(void) {
 
 // Process delayed layer change when delay expires
 void layer_jump_delay_handler(void) {
-    if (LJ_PENDING && timer_elapsed(LJ_TIMER) >= LAYER_CHANGE_DELAY) {
+    if (timer_elapsed(LJ_TIMER) >= LAYER_CHANGE_DELAY) {
         // Turn off the other layer and enable the delayed one
         layer_off(LJ_LAYER == 1 ? 2 : 1);
         layer_on(LJ_LAYER);
@@ -139,21 +139,23 @@ static bool layer_jump_handler(
 
     if (record->event.pressed) {
         if (condition) {
-            LJ_LAYER = layer;
+            // Sets up delayed layer change
+            LJ_LAYER = layer; // Layer to change to
             LJ_TIMER = *timer = timer_read();
             LJ_PENDING = true;
-            LJ_ACTIVE = false;
+            LJ_ACTIVE = false; // Cancels delayed release on double tap??
         } else {
             register_code16(alt_key);
         }
     } else {
         if (condition) {
+            // Sets up for delayed release
             LJ_RELEASE = timer_read();
             LJ_ACTIVE = true;
 
             if (timer_elapsed(*timer) < BW_TAP_TIME) {
                 tap_code16(tap_key);
-                LJ_PENDING = false;  // Cancel delayed layer change on tap
+                LJ_PENDING = false;  // Cancel delayed release change on tap
             }
         } else {
             unregister_code16(alt_key);
@@ -260,8 +262,6 @@ bool process_record_user(
     keyrecord_t*    record) {
 
     static uint16_t le1_timer;
-//    static uint16_t le2_timer;
-//    static uint16_t ri2_timer;
     static uint16_t ld1_timer;
     static uint16_t ri1_timer;
     static uint16_t rd1_timer;
@@ -571,10 +571,10 @@ const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
 */       KC_LSFT,        KC_A,        KC_S,        KC_D,        KC_F,        KC_G,                                               KC_H,        KC_J,        KC_K,        KC_L,     KC_SCLN,MT(MOD_RSFT,KC_QUOT),
 /* |            |            |            |            |            |            |-------------.          ,-------------|            |            |            |            |            |   RShift   |
    |------------+------------+------------+------------+------------+------------|     Play    |          |    Mute     |------------+------------+------------+------------+------------+------------|
-        LCtrl         Z            X            C            V            B             L1                      L3             N           M            ,             .            /         Enter
+        LCtrl         Z            X            C            V            B             L1                      L3             N           M            ,             .            /          Enter
                                         [ [ ]                                                                                                                [ ] ]
 */       KC_LCTL,        KC_Z,        KC_X,        KC_C,        KC_V,        KC_B,LT(1, KC_MPLY),         LT(2, KC_MUTE),        KC_N,        KC_M,     KC_COMM,      KC_DOT,     KC_SLSH,MT(MOD_RCTL,KC_ENT),
-/* |            |            |            |            |            |            |-------------|          |-------------|            |            |            |            |            |   RCtrl    |
+/* |            |            |            |            |            |            |-------------|          |-------------|            |            |            |            |            |    RCtrl   |
    `------------+------------+---------+--+---------+--+---------+--+------------/             /          \             \------------+--+---------+--+---------+--+---------+------------+------------'
                                             LGUI         LAlt         Caps           Space                      Space          Space       Backspace      ESC
                                        |            |     Del    |   L1 / L2  | /             /            \             \ |  L2 / L1   |            |            |
@@ -600,15 +600,15 @@ const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
 */       KC_LSFT,    KC_AGAIN,     KC_LEFT,     KC_DOWN,     KC_RGHT,       KC_NO,                                            KC_ASTR,       KC_P4,       KC_P5,       KC_P6,     KC_PPLS,       KC_NO,
 /* |            |            |            |            |            |            |-------------.          ,-------------|            |            |            |            |            |            |
    |------------+------------+------------+------------+------------+------------|             |          |             |------------+------------+------------+------------+------------+------------|
-        LCtrl        Undo         Cut          Copy         Paste        Next                                                              1            2            3             .         Enter
+        LCtrl        Undo         Cut          Copy         Paste        Next                                                              1            2            3           Enter        Enter
 
-*/       KC_LCTL,     KC_UNDO,      KC_CUT,     KC_COPY,    KC_PASTE,       NX_PR,        KC_NO,                   KC_NO,       KC_NO,       KC_P1,       KC_P2,       KC_P3,     KC_PDOT,     KC_TRNS,
-/* |            |            |            |            |            |  Previous  |-------------|          |-------------|            |            |            |            |            |   RCtrl    |
+*/       KC_LCTL,     KC_UNDO,      KC_CUT,     KC_COPY,    KC_PASTE,       NX_PR,        KC_NO,                   KC_NO,       KC_NO,       KC_P1,       KC_P2,       KC_P3,      KC_ENT,     KC_TRNS,
+/* |            |            |            |            |            |  Previous  |-------------|          |-------------|            |            |            |            |            |    RCtrl   |
    `------------+------------+---------+--+---------+--+---------+--+------------/             /          \             \------------+--+---------+--+---------+--+---------+------------+------------'
-                                                                      Space          Space                      Space                         0
+                                                                      Space          Space                      Space                         0             .
                                        |            |            |     L2     | /     L2      /            \             \ |     L4     |            |            |
                                        |            |            |            |/             /              \             \|            |            |            |
-*/ 	                                         KC_TRNS,     KC_TRNS,    I_SPC_L2,     O_SPC_L2,                        KC_SPC, LT(4,KC_NO),       KC_P0,     KC_TRNS
+*/ 	                                         KC_TRNS,     KC_TRNS,    I_SPC_L2,     O_SPC_L2,                        KC_SPC, LT(4,KC_NO),       KC_P0,     KC_PDOT
 /*                                     `------------+------------+------------+-------------'                '-------------+------------+------------+------------'
 */),
 [2] = LAYOUT(
@@ -629,10 +629,10 @@ const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
 */       KC_LSFT,    KC_AGAIN,     KC_LEFT,     KC_DOWN,     KC_RGHT,       KC_NO,                                              CW_LW,     KC_LEFT,     KC_DOWN,     KC_RGHT,  RCS(KC_NO),    AUD_MENU,
 /* |            |            |            |            |            |            |-------------.          ,-------------| Last Window|            |            |            |            |            |
    |------------+------------+------------+------------+------------+------------|             |          |             |------------+------------+------------+------------+------------+------------|
-        LCtrl        Undo         Cut          Copy         Paste       Next                                                 Cycle        Undo         Copy        Delete       Volume       Enter
+        LCtrl        Undo         Cut          Copy         Paste       Next                                                 Cycle        Undo         Copy        Delete       Volume        Enter
                                                                                                                             Taskbar                                               Up
 */       KC_LCTL,     KC_UNDO,      KC_CUT,     KC_COPY,    KC_PASTE,       NX_PR,        SE_PW,                   KC_NO,       CT_TW,       UN_RE,       CO_PA,       DE_CU,       VU_VD,     KC_TRNS,
-/* |            |            |            |            |            |  Previous  |-------------|          |-------------| Tab Window |    Redo    |    Paste   |     Cut    |    Down    |   RCtrl    |
+/* |            |            |            |            |            |  Previous  |-------------|          |-------------| Tab Window |    Redo    |    Paste   |     Cut    |    Down    |    RCtrl   |
    `------------+------------+---------+--+---------+--+---------+--+------------/             /          \             \------------+--+---------+--+---------+--+---------+------------+------------'
                                                                                                                 Space          Space
                                        |            |            |     L4     | /      L4     /            \             \ |     L1     |            |            |
@@ -658,10 +658,10 @@ const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
 */       KC_LSFT,    KC_AGAIN,     KC_LEFT,     KC_DOWN,     KC_RGHT,       VU_VD,                                              CW_LW,     KC_LEFT,     KC_DOWN,     KC_RGHT,  RCS(KC_NO),    AUD_MENU,
 /* |            |            |            |            |            |    Down    |-------------.          ,-------------| Last Window|            |            |            |            |            |
    |------------+------------+------------+------------+------------+------------|             |          |             |------------+------------+------------+------------+------------+------------|
-        LCtrl        Undo         Cut          Copy         Paste       Next                                                 Cycle        Undo         Copy        Delete       Volume       Enter
+        LCtrl        Undo         Cut          Copy         Paste       Next                                                 Cycle        Undo         Copy        Delete       Volume        Enter
                                                                                                                             Taskbar                                               Up
 */       KC_LCTL,     KC_UNDO,      KC_CUT,     KC_COPY,    KC_PASTE,       NX_PR,        KC_NO,                   KC_NO,       CT_TW,       UN_RE,       CO_PA,       DE_CU,       VU_VD,     KC_TRNS,
-/* |            |            |            |            |            |  Previous  |-------------|          |-------------| Tab Window |    Redo    |   Paste    |     Cut    |    Down    |   RCtrl    |
+/* |            |            |            |            |            |  Previous  |-------------|          |-------------| Tab Window |    Redo    |   Paste    |     Cut    |    Down    |    RCtrl   |
    `------------+------------+---------+--+---------+--+---------+--+------------/             /          \             \------------+--+---------+--+---------+--+---------+------------+------------'
 
                                        |            |            |            | /             /            \             \ |            |            |            |
@@ -848,7 +848,7 @@ layer_state_t layer_state_set_user(layer_state_t state) {
 
 void matrix_scan_user(void) {
     if (!is_keyboard_master()) return;
-
+/*
     if (BS_HOL) {
         uint16_t bs_elapsed = timer_elapsed(BS_TIM);
         if (bs_elapsed > TAPPING_TERM) {
@@ -879,23 +879,23 @@ void matrix_scan_user(void) {
         }
         BS_REL = false;
     }
-
+*/
     // Process delayed layer change if timer elapsed
     if (LJ_PENDING) {
         layer_jump_delay_handler();
     }
-
+    // Delayed release
     if (LJ_ACTIVE) {
-        uint16_t tlay_elapsed = timer_elapsed(LJ_RELEASE);
-        if (tlay_elapsed > 200) {
+        uint16_t LJ_ELAPSED = timer_elapsed(LJ_RELEASE);
+        if (LJ_ELAPSED > 200) {
             layer_jump_timeout();
         }
     }
     // Turn off caps lock after 30 seconds
     if (CAPS_ACTIVE) {
-        if (timer_elapsed(CAPS_TIMER) > 30000) {
-            CAPS_ACTIVE = false;
+        if (timer_elapsed(CAPS_TIMER) > 20000) {
             tap_code(KC_CAPS);
+            CAPS_ACTIVE = false;
         }
     }
 }
@@ -918,6 +918,8 @@ bool led_update_user(led_t led_state) {
     if (led_state.caps_lock) {
         CAPS_TIMER = timer_read();
         CAPS_ACTIVE = true;
+    } else {
+        CAPS_ACTIVE = false;
     }
     return true;
     // Requires #define SPLIT_LED_STATE_ENABLE in config.h, OR maybe not, still works without it.
@@ -1193,6 +1195,10 @@ report_mouse_t pointing_device_task_combined_user(report_mouse_t left_report, re
 
 QK_COMBO_ON	    CM_ON	Turns on Combo feature
 QK_COMBO_OFF	CM_OFF	Turns off Combo feature
+
+9.04.2025
+-Added Caps Lock timeout
+-Moved around some keys that made more sense and natural
 
 9.02.2025
 -Removed some custom functions after figuring out built-in tap-hold keys (The docs are sometimes confusing and not clear on how things work,
