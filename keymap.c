@@ -31,6 +31,9 @@
 // make lily58/rev1:via:flash -e POINTING_DEVICE=trackball_trackball -e POINTING_DEVICE_POSITION=left -j 8
 // make lily58/rev1:via:flash -e POINTING_DEVICE=trackball_trackball -e POINTING_DEVICE_POSITION=right -j 8
 
+uint16_t    CAPS_TIMER;
+bool        CAPS_ACTIVE = false;
+
 uint8_t     LJ_LAYER;
 uint16_t    LJ_RELEASE;
 bool        LJ_ACTIVE = false;
@@ -179,8 +182,6 @@ static bool tap_hold_handler(
             record->event.pressed ? register_code16(tap_key) : unregister_code16(tap_key);
         } else {
             record->event.pressed ? register_code16(alt_key) : unregister_code16(alt_key);
-            // did some janky stuff here, gotta figure it out sometime but
-            // i fixed it by adding " RGB_MS_ACTIVE = false; ". Not ideal, not sure what's causing RGB_MS_MDOE to get stuck true during ATML_ACTIVE
             if (MB) { // Resets timers for auto swapping keys/layers
                 if (RGB_MS_ACTIVE) {
                     if (timer_elapsed(RGB_MS_TIMER) > TIMER_LIMITER) {
@@ -225,33 +226,31 @@ enum custom_keycodes {
     R_MB2,                  // 71
     L_MB1,                  // 72
     L_MB2,                  // 73
-    ESC_GRV,             // 74
-    BSPC_MINS,               // 75
+    ESC_GRV,                // 74
+    BSPC_MINS,              // 75
     B_SWAP,                 // 76
-    BLANK_SPACE_HOLDER,     // 77
-    R_RBRC,                 // 78
-    L_LBRC,                 // 79
-    ML_AUTO,                // 80
-    LC_LS,                  // 81
-    LS_LC,                  // 82
-    BSPC_H,                 // 89
-    SEL_H,                  // 90
-    LTB_BK,                 // 91
-    RTB_FW,                 // 92
-    CW_LW,                  // 93
-    NX_PR,                  // 94
-    CT_UN,                  // 95
-    DL_DR,                  // 96
-    UN_RE,                  // 97
-    CO_PA,                  // 98
-    ML_MB1,                 // 99
-    ML_MB2,                 // 100
-    VU_VD,                  // 101
-    CT_TW,                  // 102
-    DE_CU,                  // 103
-    CW_FS,                   // 104
-    SE_PW,
-    CAPSW_T
+    R_RBRC,                 // 77
+    L_LBRC,                 // 78
+    ML_AUTO,                // 79
+    LC_LS,                  // 80
+    LS_LC,                  // 81
+    BSPC_H,                 // 82
+    SEL_H,                  // 83
+    LTB_BK,                 // 84
+    RTB_FW,                 // 85
+    CW_LW,                  // 86
+    NX_PR,                  // 87
+    CT_UN,                  // 88
+    DL_DR,                  // 89
+    UN_RE,                  // 90
+    CO_PA,                  // 91
+    ML_MB1,                 // 92
+    ML_MB2,                 // 93
+    VU_VD,                  // 94
+    CT_TW,                  // 95
+    DE_CU,                  // 96
+    CW_FS,                  // 97
+    SE_PW                   // 98
 //    MS_DEBUG,               // 79
 };
 
@@ -302,12 +301,6 @@ bool process_record_user(
 
     switch (keycode) {
 
-        case CAPSW_T:
-            if (record->event.pressed) {
-                caps_word_toggle();
-            }
-            return false;
-
         case O_CAPS_L1:
             return layer_jump_handler(KC_CAPS, KC_SPC, 1, &le1_timer, BTN_SWAP, record);
 
@@ -341,9 +334,6 @@ bool process_record_user(
 
         case ESC_GRV:
             return tap_hold_handler(KC_ESC, KC_GRV, &ri1_timer, NULL, NULL, record);
-
-        case BSPC_MINS:
-            return tap_hold_handler(KC_BSPC, KC_MINS, &ri1_timer, NULL, NULL, record);
 
         case LTB_BK: // LEFT TAB & BACKWARD
             return tap_hold_handler(RCS(KC_TAB), KC_WWW_BACK, &rd1_timer, NULL, true, record);
@@ -392,6 +382,28 @@ bool process_record_user(
             }
             return false;
 */
+        // On shift, backspace turns to KC_KEY
+        case BSPC_MINS:
+            if (record->event.pressed) {
+                if (get_mods() & MOD_MASK_SHIFT) {
+                    register_code(KC_MINS);
+                } else {
+                ri1_timer = timer_read();
+                }
+            } else {
+                // Shift NOT held AND tap duration less than BW_TAP_TIME to send Backspace
+                if (!(get_mods() & MOD_MASK_SHIFT) && (timer_elapsed(ri1_timer) < BW_TAP_TIME)) {
+                    tap_code(KC_BSPC);
+                } else {
+                    if (get_mods() & MOD_MASK_SHIFT) {
+                        unregister_code(KC_MINS);
+                    } else {
+                        tap_code(KC_MINS);
+                    }
+                }
+            }
+            return false;
+
         // Toggle Button Swap for MB* keys
         case B_SWAP:
             if (record->event.pressed) {
@@ -549,7 +561,7 @@ const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
 */       ESC_GRV,        KC_1,        KC_2,        KC_3,        KC_4,        KC_5,                                              KC_6,         KC_7,        KC_8,        KC_9,        KC_0,   BSPC_MINS,
 /* |            |            |            |            |            |            |                                      |            |            |            |            |            |     -      |
    |------------+------------+------------+------------+------------+------------|                                      |------------+------------+------------+------------+------------+------------|
-         Tab          Q            W            E            R            T                                                    Y           U            I            O            P            -
+         Tab          Q            W            E            R            T                                                    Y           U            I            O            P            \
             [ CAPS ]                    [ ( ]                                                                                                                [ ) ]
 */        KC_TAB,        KC_Q,        KC_W,        KC_E,       L_MB2,       L_MB1,                                              R_MB1,       R_MB2,        KC_I,        KC_O,        KC_P,     KC_BSLS,
 /* |            |            |            |            |    MB2  [ MB3 ]  MB1    |                                      |    MB1  [ MB3 ]  MB2    |            |            |            |            |
@@ -585,7 +597,7 @@ const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
    |------------+------------+------------+------------+------------+------------|                                      |------------+------------+------------+------------+------------+------------|
        LShift        Redo         Left         Down         Right                                                              *           4            5            6             +
 
-*/       KC_LSFT,    KC_AGAIN,     KC_LEFT,     KC_DOWN,     KC_RGHT,     CAPSW_T,                                            KC_ASTR,       KC_P4,       KC_P5,       KC_P6,     KC_PPLS,       KC_NO,
+*/       KC_LSFT,    KC_AGAIN,     KC_LEFT,     KC_DOWN,     KC_RGHT,       KC_NO,                                            KC_ASTR,       KC_P4,       KC_P5,       KC_P6,     KC_PPLS,       KC_NO,
 /* |            |            |            |            |            |            |-------------.          ,-------------|            |            |            |            |            |            |
    |------------+------------+------------+------------+------------+------------|             |          |             |------------+------------+------------+------------+------------+------------|
         LCtrl        Undo         Cut          Copy         Paste        Next                                                              1            2            3             .         Enter
@@ -614,7 +626,7 @@ const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
    |------------+------------+------------+------------+------------+------------|                                      |------------+------------+------------+------------+------------+------------|
        LShift        Redo         Left        Down          Right                                                            Cycle        Left         Down         Right       RCtrl        Audio
                                                                                                                             Window                                             RShift         Menu
-*/       KC_LSFT,    KC_AGAIN,     KC_LEFT,     KC_DOWN,     KC_RGHT,       KC_NO,                                              CW_LW,     KC_LEFT,     KC_DOWN,     KC_RGHT,   RCS(KC_NO),    AUD_MENU,
+*/       KC_LSFT,    KC_AGAIN,     KC_LEFT,     KC_DOWN,     KC_RGHT,       KC_NO,                                              CW_LW,     KC_LEFT,     KC_DOWN,     KC_RGHT,  RCS(KC_NO),    AUD_MENU,
 /* |            |            |            |            |            |            |-------------.          ,-------------| Last Window|            |            |            |            |            |
    |------------+------------+------------+------------+------------+------------|             |          |             |------------+------------+------------+------------+------------+------------|
         LCtrl        Undo         Cut          Copy         Paste       Next                                                 Cycle        Undo         Copy        Delete       Volume       Enter
@@ -879,6 +891,13 @@ void matrix_scan_user(void) {
             layer_jump_timeout();
         }
     }
+    // Turn off caps lock after 30 seconds
+    if (CAPS_ACTIVE) {
+        if (timer_elapsed(CAPS_TIMER) > 30000) {
+            CAPS_ACTIVE = false;
+            tap_code(KC_CAPS);
+        }
+    }
 }
 
 void caps_rgb_helper(bool active) {
@@ -895,6 +914,10 @@ void caps_rgb_helper(bool active) {
 bool led_update_user(led_t led_state) {
     if (layer_state_is(0)) { // Only update on layer 0
         caps_rgb_helper(led_state.caps_lock);
+    }
+    if (led_state.caps_lock) {
+        CAPS_TIMER = timer_read();
+        CAPS_ACTIVE = true;
     }
     return true;
     // Requires #define SPLIT_LED_STATE_ENABLE in config.h, OR maybe not, still works without it.
