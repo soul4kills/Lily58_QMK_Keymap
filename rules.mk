@@ -20,6 +20,7 @@ NKRO_ENABLE 		= yes
 
 COMBO_ENABLE		= yes
 FORCE_NKRO			= yes
+SEND_STRING_ENABLE	= yes
 
 # Vendor driver is used for RP2040 PIO serial
 SERIAL_DRIVER 		= vendor

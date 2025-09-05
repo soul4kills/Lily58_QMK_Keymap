@@ -40,6 +40,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #define TAPPING_FORCE_HOLD
 #define PERMISSIVE_HOLD
 #define BOTH_SHIFTS_TURNS_ON_CAPS_WORD
+#define DOUBLE_TAP_SHIFT_TURNS_ON_CAPS_WORD
 
 #define PIMORONI_TRACKBALL_SCALE 2
 // #define MOUSE_EXTENDED_REPORT
@@ -56,7 +57,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #define DYNAMIC_KEYMAP_LAYER_COUNT 5
 
 //----
-#define COMBO_COUNT 15  // N is the number of combos you want
+#define COMBO_COUNT 16  // N is the number of combos you want
 #define COMBO_TERM  20
 //----
 // Vendor driver is used for RP2040 PIO serial
