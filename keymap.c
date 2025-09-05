@@ -500,7 +500,7 @@ const uint16_t PROGMEM r_mmb[] = {R_MB1, R_MB2, COMBO_END};
 const uint16_t PROGMEM m_mmb[] = {ML_MB1, ML_MB2, COMBO_END};
 const uint16_t PROGMEM c_f5[] = {LTB_BK, RTB_FW, COMBO_END};
 const uint16_t PROGMEM c_caps[] = {KC_TAB, KC_Q, COMBO_END};
-const uint16_t PROGMEM c_mm[] = {KC_5, KC_7, COMBO_END};
+const uint16_t PROGMEM c_mm[] = {KC_5, KC_6, COMBO_END};
 const uint16_t PROGMEM c_equ[] = {KC_0, BSPC_MINS, COMBO_END};
 const uint16_t PROGMEM c_swp[] = {ESC_GRV, KC_1, COMBO_END};
 
@@ -556,13 +556,13 @@ const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
    |------------+------------+------------+------------+------------+------------|                                      |------------+------------+------------+------------+------------+------------|
         lShift        A            S            D            F            G                                                    H           J            K             L            ;           '
                                         [ { ]       [ DEL ]                                                                                   [ BCSPC ]      [ } ]
-*/       KC_LSFT,        KC_A,        KC_S,        KC_D,        KC_F,        KC_G,                                               KC_H,        KC_J,        KC_K,        KC_L,     KC_SCLN,     KC_QUOT,
-/* |            |            |            |            |            |            |-------------.          ,-------------|            |            |            |            |            |            |
+*/       KC_LSFT,        KC_A,        KC_S,        KC_D,        KC_F,        KC_G,                                               KC_H,        KC_J,        KC_K,        KC_L,     KC_SCLN,MT(MOD_RSFT,KC_QUOT),
+/* |            |            |            |            |            |            |-------------.          ,-------------|            |            |            |            |            |   RShift   |
    |------------+------------+------------+------------+------------+------------|     Play    |          |    Mute     |------------+------------+------------+------------+------------+------------|
         LCtrl         Z            X            C            V            B             L1                      L3             N           M            ,             .            /         Enter
                                         [ [ ]                                                                                                                [ ] ]
-*/       KC_LCTL,        KC_Z,        KC_X,        KC_C,        KC_V,        KC_B,LT(1, KC_MPLY),         LT(2, KC_MUTE),        KC_N,        KC_M,     KC_COMM,      KC_DOT,     KC_SLSH,MT(MOD_RSFT,KC_ENT),
-/* |            |            |            |            |            |            |-------------|          |-------------|            |            |            |            |            |   RShift   |
+*/       KC_LCTL,        KC_Z,        KC_X,        KC_C,        KC_V,        KC_B,LT(1, KC_MPLY),         LT(2, KC_MUTE),        KC_N,        KC_M,     KC_COMM,      KC_DOT,     KC_SLSH,MT(MOD_RCTL,KC_ENT),
+/* |            |            |            |            |            |            |-------------|          |-------------|            |            |            |            |            |   RCtrl    |
    `------------+------------+---------+--+---------+--+---------+--+------------/             /          \             \------------+--+---------+--+---------+--+---------+------------+------------'
                                             LGUI         LAlt         Caps           Space                      Space          Space       Backspace      ESC
                                        |            |     Del    |   L1 / L2  | /             /            \             \ |  L2 / L1   |            |            |
@@ -591,7 +591,7 @@ const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
         LCtrl        Undo         Cut          Copy         Paste        Next                                                              1            2            3             .         Enter
 
 */       KC_LCTL,     KC_UNDO,      KC_CUT,     KC_COPY,    KC_PASTE,       NX_PR,        KC_NO,                   KC_NO,       KC_NO,       KC_P1,       KC_P2,       KC_P3,     KC_PDOT,     KC_TRNS,
-/* |            |            |            |            |            |  Previous  |-------------|          |-------------|            |            |            |            |            |   RShift   |
+/* |            |            |            |            |            |  Previous  |-------------|          |-------------|            |            |            |            |            |   RCtrl    |
    `------------+------------+---------+--+---------+--+---------+--+------------/             /          \             \------------+--+---------+--+---------+--+---------+------------+------------'
                                                                       Space          Space                      Space                         0
                                        |            |            |     L2     | /     L2      /            \             \ |     L4     |            |            |
@@ -620,7 +620,7 @@ const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
         LCtrl        Undo         Cut          Copy         Paste       Next                                                 Cycle        Undo         Copy        Delete       Volume       Enter
                                                                                                                             Taskbar                                               Up
 */       KC_LCTL,     KC_UNDO,      KC_CUT,     KC_COPY,    KC_PASTE,       NX_PR,        SE_PW,                   KC_NO,       CT_TW,       UN_RE,       CO_PA,       DE_CU,       VU_VD,     KC_TRNS,
-/* |            |            |            |            |            |  Previous  |-------------|          |-------------| Tab Window |    Redo    |    Paste   |     Cut    |    Down    |   RShift   |
+/* |            |            |            |            |            |  Previous  |-------------|          |-------------| Tab Window |    Redo    |    Paste   |     Cut    |    Down    |   RCtrl    |
    `------------+------------+---------+--+---------+--+---------+--+------------/             /          \             \------------+--+---------+--+---------+--+---------+------------+------------'
                                                                                                                 Space          Space
                                        |            |            |     L4     | /      L4     /            \             \ |     L1     |            |            |
@@ -649,7 +649,7 @@ const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
         LCtrl        Undo         Cut          Copy         Paste       Next                                                 Cycle        Undo         Copy        Delete       Volume       Enter
                                                                                                                             Taskbar                                               Up
 */       KC_LCTL,     KC_UNDO,      KC_CUT,     KC_COPY,    KC_PASTE,       NX_PR,        KC_NO,                   KC_NO,       CT_TW,       UN_RE,       CO_PA,       DE_CU,       VU_VD,     KC_TRNS,
-/* |            |            |            |            |            |  Previous  |-------------|          |-------------| Tab Window |    Redo    |   Paste    |     Cut    |    Down    |   RShift   |
+/* |            |            |            |            |            |  Previous  |-------------|          |-------------| Tab Window |    Redo    |   Paste    |     Cut    |    Down    |   RCtrl    |
    `------------+------------+---------+--+---------+--+---------+--+------------/             /          \             \------------+--+---------+--+---------+--+---------+------------+------------'
 
                                        |            |            |            | /             /            \             \ |            |            |            |
