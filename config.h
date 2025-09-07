@@ -40,7 +40,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #define TAPPING_FORCE_HOLD
 #define PERMISSIVE_HOLD
 #define BOTH_SHIFTS_TURNS_ON_CAPS_WORD
-#define DOUBLE_TAP_SHIFT_TURNS_ON_CAPS_WORD
+//#define DOUBLE_TAP_SHIFT_TURNS_ON_CAPS_WORD
 
 #define PIMORONI_TRACKBALL_SCALE 2
 // #define MOUSE_EXTENDED_REPORT
@@ -57,13 +57,15 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #define DYNAMIC_KEYMAP_LAYER_COUNT 5
 
 //----
-#define COMBO_COUNT 16  // N is the number of combos you want
-#define COMBO_TERM  20
+#define COMBO_COUNT 18  // N is the number of combos you want
+#define COMBO_TERM  15  // Combo detection window
+#define EXTRA_SHORT_COMBOS
 //----
 // Vendor driver is used for RP2040 PIO serial
 #define SERIAL_USART_TX_PIN GP1
 // Testing for full duplex. idank profile was set without this.
 // Not sure if actually made a difference in slave mouse reports being more responsive
+// Not sure if actually made a difference in slave mouse reports being more responsiv
 #define SERIAL_USART_RX_PIN GP2
 
 #ifdef POINTING_DEVICE_POSITION_LEFT

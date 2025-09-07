@@ -81,6 +81,13 @@ uint8_t     KEY_MATRIX;
 #define VD_RIGHT    G(C(KC_RIGHT))      // VIRTUAL DESKTOP RIGHT
 #define MIN_WIND    G(KC_DOWN)          // MAXIMIZE WINDOW
 #define MAX_WIND    G(KC_UP)            // MINIMIZE WINDOW
+// Home Row Modifiers
+#define MT_F        MT(MOD_LCTL, KC_F)
+#define MT_G        MT(MOD_LSFT, KC_G)
+#define MT_H        MT(MOD_LSFT, KC_H)
+#define MT_J        MT(MOD_LCTL, KC_J)
+
+
 
 static void set_trackball_rgb_for_slave(uint8_t, uint8_t);
 
@@ -188,12 +195,13 @@ static bool tap_hold_handler(
                 if (RGB_MS_ACTIVE) {
                     if (timer_elapsed(RGB_MS_TIMER) > TIMER_LIMITER) {
                         RGB_MS_TIMER = timer_read();
-                        ATML_ACTIVE = false;
+                        //ATML_ACTIVE = false;
                     }
-                } else if (ATML_ACTIVE) {
+                }
+                if (ATML_ACTIVE) {
                     if (timer_elapsed(ATML_TIMER) > TIMER_LIMITER) {
                         ATML_TIMER = timer_read();
-                        RGB_MS_ACTIVE = false;
+                        //RGB_MS_ACTIVE = false;
                     }
                 }
             }
@@ -252,7 +260,9 @@ enum custom_keycodes {
     CT_TW,                  // 95
     DE_CU,                  // 96
     CW_FS,                  // 97
-    SE_PW                   // 98
+    SE_PW,                   // 98
+    PD_PU,                  // 97
+    HM_EN                   // 98
 //    MS_DEBUG,               // 79
 };
 
@@ -370,6 +380,12 @@ bool process_record_user(
 
         case DL_DR: // VIRTUAL DESKOP LEFT & VIRTUAL DESKTOP RIGHT
             return tap_hold_handler(G(C(KC_LEFT)), G(C(KC_RIGHT)), &rd1_timer, NULL, true, record);
+
+        case PD_PU: // Page Down & Page Up
+            return tap_hold_handler(KC_PGDN, KC_PGUP, &rd1_timer, NULL, true, record);
+
+        case HM_EN: // Home & End
+            return tap_hold_handler(KC_HOME, KC_END, &rd1_timer, NULL, true, record);
 /*
         case MS_DEBUG:
             if (record->event.pressed) {
@@ -420,8 +436,8 @@ bool process_record_user(
             if (record->event.pressed) {
                 ATML = !ATML;
             }
-            set_trackball_rgb_for_slave(3, 2);
             layer_jump_timeout();
+            set_trackball_rgb_for_slave(3, 2);
             return false;
         // Incrementer
         case FX_SLV_M: // Reduce growth factor
@@ -496,7 +512,9 @@ enum combos {
     C_CAPS,
     C_ATML,
     C_EQL,
-    C_SWP
+    C_SWP,
+    C_CDEL,
+    C_CBSP
 };
 
 const uint16_t PROGMEM l_prn[] = {KC_E, KC_W, COMBO_END};
@@ -505,8 +523,8 @@ const uint16_t PROGMEM l_cbr[] = {KC_D, KC_S, COMBO_END};
 const uint16_t PROGMEM r_cbr[] = {KC_L, KC_K, COMBO_END};
 const uint16_t PROGMEM l_brc[] = {KC_C, KC_X, COMBO_END};
 const uint16_t PROGMEM r_brc[] = {KC_DOT, KC_COMM, COMBO_END};
-const uint16_t PROGMEM l_del[] = {KC_F, KC_D, COMBO_END};
-const uint16_t PROGMEM r_bsp[] = {KC_K, KC_J, COMBO_END};
+const uint16_t PROGMEM l_del[] = {MT_F, KC_D, COMBO_END};
+const uint16_t PROGMEM r_bsp[] = {KC_K, MT_J, COMBO_END};
 const uint16_t PROGMEM l_mmb[] = {L_MB1, L_MB2, COMBO_END};
 const uint16_t PROGMEM r_mmb[] = {R_MB1, R_MB2, COMBO_END};
 const uint16_t PROGMEM m_mmb[] = {ML_MB1, ML_MB2, COMBO_END};
@@ -515,6 +533,8 @@ const uint16_t PROGMEM c_caps[] = {KC_TAB, KC_Q, COMBO_END};
 const uint16_t PROGMEM c_mm[] = {KC_5, KC_6, COMBO_END};
 const uint16_t PROGMEM c_equ[] = {KC_0, BSPC_MINS, COMBO_END};
 const uint16_t PROGMEM c_swp[] = {ESC_GRV, KC_1, COMBO_END};
+const uint16_t PROGMEM c_cdel[] = {MT_F, MT_G, COMBO_END};
+const uint16_t PROGMEM c_cbsp[] = {MT_H, MT_J, COMBO_END};
 
 combo_t key_combos[COMBO_COUNT] = {
     [CL_PRN] = COMBO(l_prn, KC_LPRN),
@@ -533,7 +553,36 @@ combo_t key_combos[COMBO_COUNT] = {
     [C_ATML] = COMBO(c_mm, ML_AUTO),
     [C_EQL] = COMBO(c_equ, KC_EQL),
     [C_SWP] = COMBO(c_swp, B_SWAP),
+    [C_CDEL] = COMBO(c_cdel, C(KC_DEL)),
+    [C_CBSP] = COMBO(c_cbsp, C(KC_BSPC)),
 };
+
+#ifdef COMBO_TERM_PER_COMBO
+uint16_t get_combo_term(uint16_t combo_index, combo_t *combo) {
+    // decide by combo->keycode
+    switch (combo->keycode) {
+        case KC_X:
+            return 50;
+    }
+
+    // or with combo index, i.e. its name from enum.
+    switch (combo_index) {
+        case COMBO_NAME_HERE:
+            return 9001;
+    }
+
+    // And if you're feeling adventurous, you can even decide by the keys in the chord,
+    // i.e. the exact array of keys you defined for the combo.
+    // This can be useful if your combos have a common key and you want to apply the
+    // same combo term for all of them.
+    if (combo->keys[0] == KC_ENT) { // if first key in the array is Enter
+        return 150;
+    }
+
+    return COMBO_TERM;
+}
+#endif
+
 // Combos End
 // Set custom Tapping Term
 uint16_t get_tapping_term(
@@ -545,6 +594,10 @@ uint16_t get_tapping_term(
             return 300;
         case LT(4,KC_NO):
             return 0;
+            case LT(1, KC_MPLY):
+            return 100;
+        case LT(2, KC_MUTE):
+            return 100;
         default:
             return TAPPING_TERM;
     }
@@ -567,11 +620,11 @@ const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
 /* |            |            |            |            |    MB2  [ MB3 ]  MB1    |                                      |    MB1  [ MB3 ]  MB2    |            |            |            |            |
    |------------+------------+------------+------------+------------+------------|                                      |------------+------------+------------+------------+------------+------------|
         lShift        A            S            D            F            G                                                    H           J            K             L            ;           '
-                                        [ { ]       [ DEL ]                                                                                   [ BCSPC ]      [ } ]
-*/       KC_LSFT,        KC_A,        KC_S,        KC_D,        KC_F,        KC_G,                                               KC_H,        KC_J,        KC_K,        KC_L,     KC_SCLN,MT(MOD_RSFT,KC_QUOT),
-/* |            |            |            |            |            |            |-------------.          ,-------------|            |            |            |            |            |   RShift   |
+                                        [ { ]       [ DEL ]  [ CTRL + DEL ]                                                   [ CTRL + BSPC ]  [ BSPC ]      [ } ]
+*/       KC_LSFT,        KC_A,        KC_S,        KC_D,        MT_F,        MT_G,                                               MT_H,        MT_J,        KC_K,        KC_L,     KC_SCLN,MT(MOD_RSFT,KC_QUOT),
+/* |            |            |            |            |    Ctrl    |   Shift    |-------------.          ,-------------|   Shift    |    Ctrl    |            |            |            |   RShift   |
    |------------+------------+------------+------------+------------+------------|     Play    |          |    Mute     |------------+------------+------------+------------+------------+------------|
-        LCtrl         Z            X            C            V            B             L1                      L3             N           M            ,             .            /          Enter
+        LCtrl         Z            X            C            V            B             L1                      L2             N           M            ,             .            /          Enter
                                         [ [ ]                                                                                                                [ ] ]
 */       KC_LCTL,        KC_Z,        KC_X,        KC_C,        KC_V,        KC_B,LT(1, KC_MPLY),         LT(2, KC_MUTE),        KC_N,        KC_M,     KC_COMM,      KC_DOT,     KC_SLSH,MT(MOD_RCTL,KC_ENT),
 /* |            |            |            |            |            |            |-------------|          |-------------|            |            |            |            |            |    RCtrl   |
@@ -583,30 +636,30 @@ const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
 /*                                     `------------+------------+------------+-------------'                '-------------+------------+------------+------------'
 */),
 [1] = LAYOUT(
-/* LOWER
-   ,------------+------------+------------+------------+------------+------------.                                      ,------------+------------+------------+------------+------------+------------.
+/* LOWER KC_PWR KC_BRIU
+   ,------------+------------+------------+------------KC_BRID+------------+------------.                                      ,------------+------------+------------+------------+------------+------------.
    |     F1     |     F2     |     F3     |     F4     |     F5     |     F6     |                                      |     F7     |     F8     |     F9     |     F10    |    F11     |    F12     |
 
 */         KC_F1,       KC_F2,       KC_F3,       KC_F4,       KC_F5,       KC_F6,                                              KC_F7,       KC_F8,       KC_F9,      KC_F10,      KC_F11,      KC_F12,
 /* |            |            |            |            |            |            |                                      |            |            |            |            |            |            |
    |------------+------------+------------+------------+------------+------------|                                      |------------+------------+------------+------------+------------+------------|
-       Button    Virt Desktop     Cycle         Up         Volume       Volume                                                 /           7            8            9             -           +
-        Swap         Left        Window                     Down          Up                                                                                                       _           =
-*/        B_SWAP,       DL_DR,       CW_LW,       KC_UP,     KC_VOLD,     KC_VOLU,                                            KC_PSLS,       KC_P7,       KC_P8,       KC_P9,     KC_MINS,      KC_EQL,
+       Button    Virt Desktop     Cycle         Up         Volume       Volume                                                 /           7            8            9             -        Page Up
+        Swap         Left        Window                     Down          Up
+*/        B_SWAP,       DL_DR,       CW_LW,       KC_UP,     KC_VOLD,     KC_VOLU,                                            KC_PSLS,       KC_P7,       KC_P8,       KC_P9,     KC_PMNS,     KC_PGUP,
 /* |            |VDesk Right | Last Window|            |            |            |                                      |            |            |            |            |            |            |
    |------------+------------+------------+------------+------------+------------|                                      |------------+------------+------------+------------+------------+------------|
-       LShift        Redo         Left         Down         Right                                                              *           4            5            6             +
+       LShift        Redo         Left         Down         Right                                                              *           4            5            6             +       Page Down
 
-*/       KC_LSFT,    KC_AGAIN,     KC_LEFT,     KC_DOWN,     KC_RGHT,       KC_NO,                                            KC_ASTR,       KC_P4,       KC_P5,       KC_P6,     KC_PPLS,       KC_NO,
+*/       KC_LSFT,    KC_AGAIN,     KC_LEFT,     KC_DOWN,     KC_RGHT,       KC_NO,                                            KC_ASTR,       KC_P4,       KC_P5,       KC_P6,     KC_PPLS,     KC_PGDN,
 /* |            |            |            |            |            |            |-------------.          ,-------------|            |            |            |            |            |            |
-   |------------+------------+------------+------------+------------+------------|             |          |             |------------+------------+------------+------------+------------+------------|
-        LCtrl        Undo         Cut          Copy         Paste        Next                                                              1            2            3           Enter        Enter
+   |------------+------------+------------+------------+------------+------------|XXXXXXXXXXXXX|          |             |------------+------------+------------+------------+------------+------------|
+        LCtrl        Undo         Cut          Copy         Paste        Next                                             Scroll Lock       1            2            3           Enter        Enter
 
-*/       KC_LCTL,     KC_UNDO,      KC_CUT,     KC_COPY,    KC_PASTE,       NX_PR,        KC_NO,                   KC_NO,       KC_NO,       KC_P1,       KC_P2,       KC_P3,      KC_ENT,     KC_TRNS,
+*/       KC_LCTL,     KC_UNDO,      KC_CUT,     KC_COPY,    KC_PASTE,       NX_PR,        KC_NO,               KC_INSERT,     KC_SCRL,       KC_P1,       KC_P2,       KC_P3,      KC_ENT,     KC_TRNS,
 /* |            |            |            |            |            |  Previous  |-------------|          |-------------|            |            |            |            |            |    RCtrl   |
    `------------+------------+---------+--+---------+--+---------+--+------------/             /          \             \------------+--+---------+--+---------+--+---------+------------+------------'
-                                                                      Space          Space                      Space                         0             .
-                                       |            |            |     L2     | /     L2      /            \             \ |     L4     |            |            |
+                                                                      Space          Space                      Space            L4           0             .
+                                       |            |            |     L2     | /     L2      /            \             \ |            |            |            |
                                        |            |            |            |/             /              \             \|            |            |            |
 */ 	                                         KC_TRNS,     KC_TRNS,    I_SPC_L2,     O_SPC_L2,                        KC_SPC, LT(4,KC_NO),       KC_P0,     KC_PDOT
 /*                                     `------------+------------+------------+-------------'                '-------------+------------+------------+------------'
@@ -628,14 +681,14 @@ const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
                                                                                                                             Window                                             RShift         Menu
 */       KC_LSFT,    KC_AGAIN,     KC_LEFT,     KC_DOWN,     KC_RGHT,       KC_NO,                                              CW_LW,     KC_LEFT,     KC_DOWN,     KC_RGHT,  RCS(KC_NO),    AUD_MENU,
 /* |            |            |            |            |            |            |-------------.          ,-------------| Last Window|            |            |            |            |            |
-   |------------+------------+------------+------------+------------+------------|             |          |             |------------+------------+------------+------------+------------+------------|
+   |------------+------------+------------+------------+------------+------------|             |          |XXXXXXXXXXXXX|------------+------------+------------+------------+------------+------------|
         LCtrl        Undo         Cut          Copy         Paste       Next                                                 Cycle        Undo         Copy        Delete       Volume        Enter
                                                                                                                             Taskbar                                               Up
 */       KC_LCTL,     KC_UNDO,      KC_CUT,     KC_COPY,    KC_PASTE,       NX_PR,        SE_PW,                   KC_NO,       CT_TW,       UN_RE,       CO_PA,       DE_CU,       VU_VD,     KC_TRNS,
 /* |            |            |            |            |            |  Previous  |-------------|          |-------------| Tab Window |    Redo    |    Paste   |     Cut    |    Down    |    RCtrl   |
    `------------+------------+---------+--+---------+--+---------+--+------------/             /          \             \------------+--+---------+--+---------+--+---------+------------+------------'
-                                                                                                                Space          Space
-                                       |            |            |     L4     | /      L4     /            \             \ |     L1     |            |            |
+                                                                       L4             L4                        Space          Space
+                                       |            |            |            | /             /            \             \ |     L1     |            |            |
                                        |            |            |            |/             /              \             \|            |            |            |
 */ 	                                         KC_TRNS,     KC_TRNS, LT(4,KC_NO),  LT(4,KC_NO),                        KC_SPC,    I_SPC_L1,     KC_TRNS,     KC_TRNS
 /*                                     `------------+------------+------------+-------------'                '-------------+------------+------------+------------'
@@ -660,7 +713,7 @@ const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
    |------------+------------+------------+------------+------------+------------|             |          |             |------------+------------+------------+------------+------------+------------|
         LCtrl        Undo         Cut          Copy         Paste       Next                                                 Cycle        Undo         Copy        Delete       Volume        Enter
                                                                                                                             Taskbar                                               Up
-*/       KC_LCTL,     KC_UNDO,      KC_CUT,     KC_COPY,    KC_PASTE,       NX_PR,        KC_NO,                   KC_NO,       CT_TW,       UN_RE,       CO_PA,       DE_CU,       VU_VD,     KC_TRNS,
+*/       KC_LCTL,     KC_UNDO,      KC_CUT,     KC_COPY,    KC_PASTE,       NX_PR,LT(1, KC_MPLY),         LT(2, KC_MUTE),       CT_TW,       UN_RE,       CO_PA,       DE_CU,       VU_VD,     KC_TRNS,
 /* |            |            |            |            |            |  Previous  |-------------|          |-------------| Tab Window |    Redo    |   Paste    |     Cut    |    Down    |    RCtrl   |
    `------------+------------+---------+--+---------+--+---------+--+------------/             /          \             \------------+--+---------+--+---------+--+---------+------------+------------'
 
@@ -893,7 +946,7 @@ void matrix_scan_user(void) {
     }
     // Turn off caps lock after 30 seconds
     if (CAPS_ACTIVE) {
-        if (timer_elapsed(CAPS_TIMER) > 20000) {
+        if (timer_elapsed(CAPS_TIMER) > 30000) {
             tap_code(KC_CAPS);
             CAPS_ACTIVE = false;
         }
@@ -1110,13 +1163,13 @@ static report_mouse_t handle_mouse_mode_rgb(report_mouse_t left_report, report_m
     return pointing_device_combine_reports(left_report, right_report);
 }
 // Custom Auto Mouse Layer
-static report_mouse_t auto_mouse_layer_handler(report_mouse_t mouse_report) {
-
+static void auto_mouse_layer_handler(report_mouse_t* mouse_report) {
     uint16_t elapsed = timer_elapsed(ATML_TIMER);
-    if (mouse_report.x || mouse_report.y) {
+    if (mouse_report->x || mouse_report->y) {
         if (!ATML_ACTIVE) {
             layer_on(3);
             ATML_ACTIVE = true;
+            RGB_MS_ACTIVE = false;
         }
         if (elapsed > TIMER_LIMITER) {
             ATML_TIMER = timer_read();
@@ -1127,7 +1180,6 @@ static report_mouse_t auto_mouse_layer_handler(report_mouse_t mouse_report) {
             ATML_ACTIVE = false;
         }
     }
-    return mouse_report;
 }
 
 report_mouse_t pointing_device_task_combined_user(report_mouse_t left_report, report_mouse_t right_report) {
@@ -1138,8 +1190,8 @@ report_mouse_t pointing_device_task_combined_user(report_mouse_t left_report, re
 
         // Handle Mousing Mode or Auto Mouse Layer
         if (ATML) {
-            auto_mouse_layer_handler(left_report);
-            auto_mouse_layer_handler(right_report);
+            auto_mouse_layer_handler(&left_report);
+            auto_mouse_layer_handler(&right_report);
         } else {
             handle_mouse_mode_rgb(left_report, right_report);
         }
