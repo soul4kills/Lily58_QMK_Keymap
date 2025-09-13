@@ -91,8 +91,6 @@ uint8_t     KEY_MATRIX;
 #define MT_H        MT(MOD_RSFT, KC_H)
 #define MT_J        MT(MOD_RCTL, KC_J)
 
-
-
 static void set_trackball_rgb_for_slave(uint8_t, uint8_t);
 
 typedef enum incrementer {
@@ -264,9 +262,9 @@ enum custom_keycodes {
     CT_TW,                  // 95
     DE_CU,                  // 96
     CW_FS,                  // 97
-    SE_PW,                   // 98
-    PD_PU,                  // 97
-    HM_EN                   // 98
+    SE_PW,                  // 98
+    PD_PU,                  // 99
+    HM_EN                   // 100
 //    MS_DEBUG,               // 79
 };
 
