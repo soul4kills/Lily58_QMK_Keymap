@@ -57,16 +57,12 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #define DYNAMIC_KEYMAP_LAYER_COUNT 5
 
 //----
-#define COMBO_COUNT 18  // N is the number of combos you want
+#define COMBO_COUNT 19  // N is the number of combos you want
 #define COMBO_TERM  15  // Combo detection window
 #define EXTRA_SHORT_COMBOS
 //----
 // Vendor driver is used for RP2040 PIO serial
 #define SERIAL_USART_TX_PIN GP1
-// Testing for full duplex. idank profile was set without this.
-// Not sure if actually made a difference in slave mouse reports being more responsive
-// Not sure if actually made a difference in slave mouse reports being more responsiv
-#define SERIAL_USART_RX_PIN GP2
 
 #ifdef POINTING_DEVICE_POSITION_LEFT
     #define MASTER_LEFT
