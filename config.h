@@ -58,7 +58,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 //----
 #define COMBO_COUNT 19  // N is the number of combos you want
-#define COMBO_TERM  15  // Combo detection window
+#define COMBO_TERM  10  // Combo detection window
 #define EXTRA_SHORT_COMBOS
 //----
 // Vendor driver is used for RP2040 PIO serial
