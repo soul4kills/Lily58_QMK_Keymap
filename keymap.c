@@ -86,7 +86,8 @@ uint8_t     KEY_MATRIX;
 #define SWR_DESK    LSG(KC_RIGHT)        // SEND WINDOW TO RIGHT MONITOR
 #define SWL_DESK    LSG(KC_LEFT)         // SEND WINDOW TO LEFT MONITOR
 // Home Row Modifiers
-fw
+
+#define MT_F        MT(MOD_LCTL, KC_F)
 #define MT_G        MT(MOD_LSFT, KC_G)
 #define MT_H        MT(MOD_RSFT, KC_H)
 #define MT_J        MT(MOD_RCTL, KC_J)
@@ -606,11 +607,11 @@ uint16_t get_tapping_term(
         case LT(1, KC_MPLY):
         case LT(2, KC_MUTE):
             return 100;
-        case MT(MOD_LCTL, KC_F):
-        case MT(MOD_LSFT, KC_G):
-        case MT(MOD_RSFT, KC_H):
-        case MT(MOD_RCTL, KC_J):
-            return 1000;
+        case MT_F:
+        case MT_G:
+        case MT_H:
+        case MT_J:
+            return 2000;
         default:
             return TAPPING_TERM;
     }
