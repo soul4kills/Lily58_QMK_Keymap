@@ -59,26 +59,26 @@ uint16_t    ATML_DELAY = 0;         // Added Delay when key pressed
 #define     RGB_MS_TIMEOUT 1500     // Mouse Mode Timeout
 
 // Custom Modded Keys
-#define AUD_MENU    C(G(KC_V))          // AUDIO MENU
-#define L_TAB       RCS(KC_TAB)         // LEFT TAB
-#define R_TAB       C(KC_TAB)        // RIGHT TAB
-#define CL_TAB      C(KC_W)          // CLOSE TAB
-#define LST_WIND    A(KC_TAB)           // LAST WINDOW
-#define CYC_WIND    A(KC_ESC)           // CYCLE WINDOW
+#define AUD_MENU    C(G(KC_V))      // AUDIO MENU
+#define L_TAB       RCS(KC_TAB)     // LEFT TAB
+#define R_TAB       C(KC_TAB)       // RIGHT TAB
+#define CL_TAB      C(KC_W)         // CLOSE TAB
+#define LST_WIND    A(KC_TAB)       // LAST WINDOW
+#define CYC_WIND    A(KC_ESC)       // CYCLE WINDOW
 #define KC_UNDO     C(KC_Z)
 #define KC_AGAIN    C(KC_Y)
 #define KC_CUT      C(KC_X)
 #define KC_COPY     C(KC_C)
 #define KC_PASTE    C(KC_V)
-#define CYC_TASB    G(KC_T)             // CYCLE TASKBAR BUTTONS
-#define TAB_WIND    LCA(KC_TAB)         // TAB CYCLE WINDOWS
-#define CL_WIND     A(KC_F4)            // CLOSE WINDOW
-#define VD_LEFT     G(C(KC_LEFT))       // VIRTUAL DESKTOP LEFT
-#define VD_RIGHT    G(C(KC_RIGHT))      // VIRTUAL DESKTOP RIGHT
-#define MIN_WIND    G(KC_DOWN)          // MAXIMIZE WINDOW
-#define MAX_WIND    G(KC_UP)            // MINIMIZE WINDOW
-#define SWR_DESK    LSG(KC_RIGHT)        // SEND WINDOW TO RIGHT MONITOR
-#define SWL_DESK    LSG(KC_LEFT)         // SEND WINDOW TO LEFT MONITOR
+#define CYC_TASB    G(KC_T)         // CYCLE TASKBAR BUTTONS
+#define TAB_WIND    LCA(KC_TAB)     // TAB CYCLE WINDOWS
+#define CL_WIND     A(KC_F4)        // CLOSE WINDOW
+#define VD_LEFT     G(C(KC_LEFT))   // VIRTUAL DESKTOP LEFT
+#define VD_RIGHT    G(C(KC_RIGHT))  // VIRTUAL DESKTOP RIGHT
+#define MIN_WIND    G(KC_DOWN)      // MAXIMIZE WINDOW
+#define MAX_WIND    G(KC_UP)        // MINIMIZE WINDOW
+#define SWR_DESK    LSG(KC_RIGHT)   // SEND WINDOW TO RIGHT MONITOR
+#define SWL_DESK    LSG(KC_LEFT)    // SEND WINDOW TO LEFT MONITOR
 // Home Row Modifiers
 
 #define MT_F        MT(MOD_LCTL, KC_F)
@@ -124,13 +124,11 @@ static void layer_jump_timeout(void) {
 
 // Process delayed layer change when delay expires
 void layer_jump_delay_handler(void) {
-    if (timer_elapsed(LJ_TIMER) >= LAYER_CHANGE_DELAY) {
-        // Turn off the other layer and enable the delayed one
-        layer_off(LJ_LAYER == 1 ? 2 : 1);
-        layer_on(LJ_LAYER);
-        LJ_ACTIVE = false;
-        LJ_PENDING = false;
-    }
+    // Turn off the other layer and enable the delayed one
+    layer_off(LJ_LAYER == 1 ? 2 : 1);
+    layer_on(LJ_LAYER);
+    LJ_ACTIVE = false;
+    LJ_PENDING = false;
 }
 
 static bool layer_jump_handler(
@@ -143,11 +141,11 @@ static bool layer_jump_handler(
 
     if (record->event.pressed) {
         if (condition) {
-            // Sets up delayed layer change
-            LJ_LAYER = layer; // Layer to change to
+                                    // Sets up delayed layer change
+            LJ_LAYER = layer;       // Layer to change to
             LJ_TIMER = *timer = timer_read();
-            LJ_PENDING = true;
-            LJ_ACTIVE = false; // Cancels delayed release on double tap??
+            LJ_PENDING = true;      // Sets up for delayed layer activation
+            LJ_ACTIVE = false;      // Cancels delayed release on double tap
         } else {
             register_code16(alt_key);
         }
@@ -157,7 +155,7 @@ static bool layer_jump_handler(
             LJ_RELEASE = timer_read();
             LJ_ACTIVE = true;
 
-            if (timer_elapsed(*timer) < BW_TAP_TIME) {
+            if (timer_elapsed(*timer) < TAPPING_TERM) {
                 tap_code16(tap_key);
                 LJ_PENDING = false;  // Cancel delayed release change on tap
             }
@@ -211,7 +209,7 @@ static bool tap_hold_handler(
                 ATML_TIMER = *timer;
             }
         } else {
-            if (timer_elapsed(*timer) < BW_TAP_TIME) {
+            if (timer_elapsed(*timer) < TAPPING_TERM) {
                 tap_code16(tap_key);
             } else {
                 tap_code16(alt_key);
@@ -379,8 +377,8 @@ bool process_record_user(
                 ri1_timer = timer_read();
                 }
             } else {
-                // Shift NOT held AND tap duration less than BW_TAP_TIME to send Backspace
-                if (!(get_mods() & MOD_MASK_SHIFT) && (timer_elapsed(ri1_timer) < BW_TAP_TIME)) {
+                // Shift NOT held AND tap duration less than TAPPING_TERM to send Backspace
+                if (!(get_mods() & MOD_MASK_SHIFT) && (timer_elapsed(ri1_timer) < TAPPING_TERM)) {
                     tap_code(KC_BSPC);
                 } else {
                     if (get_mods() & MOD_MASK_SHIFT) {
@@ -548,7 +546,7 @@ uint16_t get_tapping_term(
         case MT_G:
         case MT_H:
         case MT_J:
-            return 500;
+            return 250;
         default:
             return TAPPING_TERM;
     }
@@ -731,7 +729,7 @@ void debug_mouse_reports(report_mouse_t left_report, report_mouse_t right_report
 void set_trackball_rgb_for_layer(uint8_t layer) {
     switch (layer) {
         case 0:
-            if (BTN_SWAP) {
+            if (BTN_SWAP) { // Provides an indicator that keys are swapped
                 pimoroni_trackball_set_rgbw(255, 255, 255, 0);  // White (base layer, swapped)
             } else {
                 pimoroni_trackball_set_rgbw(0, 0, 255, 0);      // Blue (base layer, normal)
@@ -854,12 +852,13 @@ void matrix_scan_user(void) {
     if (!is_keyboard_master()) return;
     // Process delayed layer change if timer elapsed
     if (LJ_PENDING) {
-        layer_jump_delay_handler();
+        if (timer_elapsed(LJ_TIMER) >= LAYER_CHANGE_DELAY) {
+            layer_jump_delay_handler();
+        }
     }
     // Delayed release
     if (LJ_ACTIVE) {
-        uint16_t LJ_ELAPSED = timer_elapsed(LJ_RELEASE);
-        if (LJ_ELAPSED > 200) {
+        if (timer_elapsed(LJ_RELEASE) > 200) {
             layer_jump_timeout();
         }
     }

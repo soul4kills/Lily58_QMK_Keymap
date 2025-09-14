@@ -35,7 +35,6 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 // #define QUICK_TAP_TERM 0
 #define TAPPING_TERM 175
-#define BW_TAP_TIME 175
 #define TAPPING_TERM_PER_KEY
 #define TAPPING_FORCE_HOLD
 // #define PERMISSIVE_HOLD // Interferes with custom modded tapping terms
