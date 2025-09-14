@@ -54,12 +54,6 @@ bool        ATML_ACTIVE = false;
 uint16_t    ATML_TIMER;
 uint16_t    ATML_DELAY = 0;         // Added Delay when key pressed
 
-// Backspace repeating hold
-bool        BS_HOL;
-bool        BS_REL;
-uint16_t    BS_TIM;
-uint8_t     KEY_MATRIX;
-
 #define     TIMER_LIMITER 500       // Global limiter to prevent excessive timer_read()'s
 #define     ATML_TIMEOUT 1500       // Auto Mouse Layer Timeout
 #define     RGB_MS_TIMEOUT 1500     // Mouse Mode Timeout
@@ -278,32 +272,7 @@ bool process_record_user(
     static uint16_t ld1_timer;
     static uint16_t ri1_timer;
     static uint16_t rd1_timer;
-/* Testing out key detection to reset ATML timer, but doesn't work for modded keys
-    uint8_t mods = get_mods();
-    uint8_t weakmods = get_weak_mods();
 
-    // Detect press of GUI key alone
-    if (mods & MOD_MASK_GUI) {
-        ATML_TIMER = timer_read();
-    }
-
-    // Detect press of G key alone
-    if (keycode == KC_G) {
-        ATML_TIMER = timer_read();
-    }
-
-    // Detect press of T key while GUI is held (Win+T)
-    if (weakmods & MOD_MASK_GUI) {
-        if (keycode == KC_T) {
-            ATML_TIMER = timer_read();
-        }
-    }    // Detect press of T key while GUI is held (Win+T)
-    if (mods & MOD_MASK_GUI) {
-        if (keycode == KC_T) {
-            ATML_TIMER = timer_read();
-        }
-    }
-*/
     if (record->event.pressed) {
         if (keycode == KC_UP || keycode == KC_DOWN || keycode == KC_LEFT || keycode == KC_RIGHT) {
             if (ATML_ACTIVE && timer_elapsed(ATML_TIMER) > TIMER_LIMITER) {
@@ -455,36 +424,6 @@ bool process_record_user(
                 GROWTH_FACTOR *= 2;
             }
             return false;
-        // BSPC_H & SEL_H testing after key release actions
-        case BSPC_H:
-            if (record->event.pressed) {
-                BS_TIM = timer_read();
-                BS_HOL = true;
-                KEY_MATRIX = 0;
-            } else {
-                if (timer_elapsed(BS_TIM) < TAPPING_TERM) {
-                    tap_code(KC_EQL);
-                    BS_HOL = false;
-                }
-                BS_REL = true;
-            }
-            return false; // Skip default handling
-
-        case SEL_H:
-            if (record->event.pressed) {
-                right_button.mode = MODE_ARROW;
-                BS_TIM = timer_read();
-                BS_HOL = true;
-                KEY_MATRIX = 1;
-            } else {
-                if (timer_elapsed(BS_TIM) < TAPPING_TERM) {
-                    tap_code(KC_H);
-                    BS_HOL = false;
-                }
-                BS_REL = true;
-                right_button.mode = MODE_OFF;
-            }
-            return false;
 
         case SE_PW:
             if (record->event.pressed) {
@@ -514,7 +453,6 @@ enum combos {
     CM_MMB,
     C_F5,
     C_CAP1,
-//    C_CAP2,
     C_ATML,
     C_EQL,
     C_SWP,
@@ -536,7 +474,6 @@ const uint16_t PROGMEM r_mmb[] = {R_MB1, R_MB2, COMBO_END};
 const uint16_t PROGMEM m_mmb[] = {ML_MB1, ML_MB2, COMBO_END};
 const uint16_t PROGMEM c_f5[] = {LTB_BK, RTB_FW, COMBO_END};
 const uint16_t PROGMEM c_cap1[] = {KC_TAB, KC_Q, COMBO_END};
-//const uint16_t PROGMEM c_cap2[] = {O_CAPS_L1, KC_SPC, COMBO_END};
 const uint16_t PROGMEM c_mm[] = {KC_5, KC_6, COMBO_END};
 const uint16_t PROGMEM c_equ[] = {KC_0, BSPC_MINS, COMBO_END};
 const uint16_t PROGMEM c_swp[] = {ESC_GRV, KC_1, COMBO_END};
@@ -558,7 +495,6 @@ combo_t key_combos[COMBO_COUNT] = {
     [CM_MMB] = COMBO(m_mmb, KC_MS_BTN3),
     [C_F5] = COMBO(c_f5, KC_F5),
     [C_CAP1] = COMBO(c_cap1, KC_CAPS),
-//    [C_CAP2] = COMBO(c_cap2, KC_CAPS),
     [C_ATML] = COMBO(c_mm, ML_AUTO),
     [C_EQL] = COMBO(c_equ, KC_EQL),
     [C_SWP] = COMBO(c_swp, B_SWAP),
@@ -606,12 +542,13 @@ uint16_t get_tapping_term(
             return 0;
         case LT(1, KC_MPLY):
         case LT(2, KC_MUTE):
+        case MT(MOD_LALT,KC_DEL):
             return 100;
         case MT_F:
         case MT_G:
         case MT_H:
         case MT_J:
-            return 2000;
+            return 500;
         default:
             return TAPPING_TERM;
     }
@@ -915,38 +852,6 @@ layer_state_t layer_state_set_user(layer_state_t state) {
 
 void matrix_scan_user(void) {
     if (!is_keyboard_master()) return;
-/*
-    if (BS_HOL) {
-        uint16_t bs_elapsed = timer_elapsed(BS_TIM);
-        if (bs_elapsed > TAPPING_TERM) {
-            BS_HOL = false;
-            switch(KEY_MATRIX) {
-                case 0:
-                    register_code(KC_BSPC);
-                    break;
-                case 1:
-                    register_code(KC_MS_BTN1);
-                    unregister_code(KC_MS_BTN1);
-                    register_code(KC_LSFT);
-                    break;
-            }
-        }
-    }
-
-    if (BS_REL) {
-        switch(KEY_MATRIX) {
-            case 0:
-                unregister_code(KC_BSPC);
-                break;
-            case 1:
-                unregister_code(KC_LSFT);
-                register_code16(C(KC_C));
-                unregister_code16(C(KC_C));
-                break;
-        }
-        BS_REL = false;
-    }
-*/
     // Process delayed layer change if timer elapsed
     if (LJ_PENDING) {
         layer_jump_delay_handler();
@@ -1037,7 +942,7 @@ static void handle_arrow_emulation(report_mouse_t* mouse_report) {
 // Accumulated scroll values (for smooth scroll)
 float       scroll_accumulated_h = 0;
 float       scroll_accumulated_v = 0;
-void handle_scroll_emulation(report_mouse_t* mouse_report) {
+static void handle_scroll_emulation(report_mouse_t* mouse_report) {
 
     scroll_accumulated_h += (float)mouse_report->x / SCROLL_DIVISOR_H;
     scroll_accumulated_v += -(float)mouse_report->y / SCROLL_DIVISOR_V;
