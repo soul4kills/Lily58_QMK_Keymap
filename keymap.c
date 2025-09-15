@@ -187,17 +187,13 @@ static bool tap_hold_handler(
         } else {
             record->event.pressed ? register_code16(alt_key) : unregister_code16(alt_key);
             if (MB) { // Resets timers for auto swapping keys/layers
-                if (RGB_MS_ACTIVE) {
-                    if (timer_elapsed(RGB_MS_TIMER) > TIMER_LIMITER) {
-                        RGB_MS_TIMER = timer_read();
-                        //ATML_ACTIVE = false;
-                    }
+                if (RGB_MS_ACTIVE && timer_elapsed(RGB_MS_TIMER) > TIMER_LIMITER) {
+                    RGB_MS_TIMER = timer_read();
+                    //ATML_ACTIVE = false;
                 }
-                if (ATML_ACTIVE) {
-                    if (timer_elapsed(ATML_TIMER) > TIMER_LIMITER) {
-                        ATML_TIMER = timer_read() + ATML_DELAY;
-                        //RGB_MS_ACTIVE = false;
-                    }
+                if (ATML_ACTIVE && timer_elapsed(ATML_TIMER) > TIMER_LIMITER) {
+                    ATML_TIMER = timer_read() + ATML_DELAY;
+                    //RGB_MS_ACTIVE = false;
                 }
             }
         }
@@ -271,15 +267,15 @@ bool process_record_user(
     static uint16_t ri1_timer;
     static uint16_t rd1_timer;
 
-    if (record->event.pressed) {
-        if (keycode == KC_UP || keycode == KC_DOWN || keycode == KC_LEFT || keycode == KC_RIGHT) {
+    switch (keycode) {
+        case KC_UP:
+        case KC_DOWN:
+        case KC_LEFT:
+        case KC_RIGHT:
             if (ATML_ACTIVE && timer_elapsed(ATML_TIMER) > TIMER_LIMITER) {
                 ATML_TIMER = timer_read();
             }
-        }
-    }
-
-    switch (keycode) {
+            return true;
 
         case O_CAPS_L1:
             return layer_jump_handler(KC_SPC, KC_SPC, 1, &le1_timer, BTN_SWAP, record);
@@ -535,18 +531,17 @@ uint16_t get_tapping_term(
 
     switch (keycode) {
         case LT(2, KC_SPC):
-            return 300;
-        case LT(4,KC_NO):
-            return 0;
-        case LT(1, KC_MPLY):
-        case LT(2, KC_MUTE):
-        case MT(MOD_LALT,KC_DEL):
-            return 100;
         case MT_F:
         case MT_G:
         case MT_H:
         case MT_J:
-            return 250;
+            return 300;
+        case LT(1, KC_MPLY):
+        case LT(2, KC_MUTE):
+        case MT(MOD_LALT,KC_DEL):
+            return 100;
+        case LT(4,KC_NO):
+            return 0;
         default:
             return TAPPING_TERM;
     }
@@ -773,11 +768,9 @@ void set_trackball_rgb_for_layer(uint8_t layer) {
 static void set_trackball_rgb_for_slave(uint8_t layer, uint8_t both) {
     // Set number to choose which to update
     // 0 = slave, 1 = master, 2 = both
-    if (is_keyboard_master()) {
-        if (both !=1) {
-            uint8_t msg[2] = {1, layer};
-            transaction_rpc_send(USER_SYNC, sizeof(msg), msg);
-        }
+    if (is_keyboard_master() && (both !=1)) {
+        uint8_t msg[2] = {1, layer};
+        transaction_rpc_send(USER_SYNC, sizeof(msg), msg);
     }
     if (both == 2) {
          set_trackball_rgb_for_layer(layer);
@@ -838,10 +831,8 @@ layer_state_t layer_state_set_user(layer_state_t state) {
     uint8_t sync_layer = layer;
     // When Caps Lock is active on base layer, use layer 5 (Clear) to indicate Caps Lock RGB
     // But on other layers, Caps Lock does not change the color
-    if (layer == 0) {
-        if (caps.caps_lock) {
-            sync_layer = 6;
-        }
+    if (layer == 0 && caps.caps_lock) {
+        sync_layer = 6;
     }
 
     set_trackball_rgb_for_slave(sync_layer, 2);
@@ -849,25 +840,24 @@ layer_state_t layer_state_set_user(layer_state_t state) {
 }
 
 void matrix_scan_user(void) {
-    if (!is_keyboard_master()) return;
+    if (!is_keyboard_master()) {
+        return;
+    }
+
     // Process delayed layer change if timer elapsed
-    if (LJ_PENDING) {
-        if (timer_elapsed(LJ_TIMER) >= LAYER_CHANGE_DELAY) {
-            layer_jump_delay_handler();
-        }
+    if (LJ_PENDING && timer_elapsed(LJ_TIMER) >= LAYER_CHANGE_DELAY) {
+        layer_jump_delay_handler();
     }
+
     // Delayed release
-    if (LJ_ACTIVE) {
-        if (timer_elapsed(LJ_RELEASE) > 200) {
-            layer_jump_timeout();
-        }
+    if (LJ_ACTIVE && timer_elapsed(LJ_RELEASE) > 200) {
+        layer_jump_timeout();
     }
+
     // Turn off caps lock after 30 seconds
-    if (CAPS_ACTIVE) {
-        if (timer_elapsed(CAPS_TIMER) > 30000) {
-            tap_code(KC_CAPS);
-            CAPS_ACTIVE = false;
-        }
+    if (CAPS_ACTIVE && timer_elapsed(CAPS_TIMER) > 30000) {
+        tap_code(KC_CAPS);
+        CAPS_ACTIVE = false;
     }
 }
 
@@ -1083,6 +1073,7 @@ static report_mouse_t handle_mouse_mode_rgb(report_mouse_t left_report, report_m
 // Custom Auto Mouse Layer
 static void auto_mouse_layer_handler(report_mouse_t* mouse_report) {
     uint16_t elapsed = timer_elapsed(ATML_TIMER);
+
     if (mouse_report->x || mouse_report->y) {
         if (!ATML_ACTIVE) {
             layer_on(3);
@@ -1092,13 +1083,12 @@ static void auto_mouse_layer_handler(report_mouse_t* mouse_report) {
         if (elapsed > TIMER_LIMITER) {
             ATML_TIMER = timer_read();
         }
-    } else if (elapsed > ATML_TIMEOUT) {
-        if (ATML_ACTIVE) {
-            layer_off(3);
-            ATML_ACTIVE = false;
-        }
+    } else if (ATML_ACTIVE && elapsed > ATML_TIMEOUT) {
+        layer_off(3);
+        ATML_ACTIVE = false;
     }
 }
+
 
 report_mouse_t pointing_device_task_combined_user(report_mouse_t left_report, report_mouse_t right_report) {
     if (is_keyboard_master()) {
