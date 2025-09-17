@@ -26,8 +26,8 @@ SEND_STRING_ENABLE	= yes
 SERIAL_DRIVER 		= vendor
 
 # Not really needed for RPC communications, still works without these
-# SPLIT_KEYBOARD		= yes
-# SPLIT_TRANSPORT		= yes
+SPLIT_KEYBOARD		= yes
+SPLIT_TRANSPORT		= yes
 
 # Disable things we don't support that take up unnecessary space.
 OLED_ENABLE			= no

@@ -87,13 +87,13 @@ uint16_t    ATML_DELAY = 0;         // Added Delay when key pressed
 #define MT_J        MT(MOD_RCTL, KC_J)
 
 static void set_trackball_rgb_for_slave(uint8_t, uint8_t);
-
+// Unused struct at the moment
 typedef enum incrementer {
     ARROW_MOMENTUM,
     ARROW_STEP,
     MOMENTUM,
     MIN_SCALE,
-    MAX_SCALE // waiting to see if next tap is coming
+    MAX_SCALE
 } inc_mode_t;
 
 // Structs for handle_mouse_buttons()
@@ -535,7 +535,7 @@ uint16_t get_tapping_term(
         case MT_G:
         case MT_H:
         case MT_J:
-            return 300;
+            return 250;
         case LT(1, KC_MPLY):
         case LT(2, KC_MUTE):
         case MT(MOD_LALT,KC_DEL):
@@ -839,28 +839,29 @@ layer_state_t layer_state_set_user(layer_state_t state) {
     return state;
 }
 
-void matrix_scan_user(void) {
-    if (!is_keyboard_master()) {
-        return;
-    }
-
-    // Process delayed layer change if timer elapsed
-    if (LJ_PENDING && timer_elapsed(LJ_TIMER) >= LAYER_CHANGE_DELAY) {
-        layer_jump_delay_handler();
-    }
-
-    // Delayed release
-    if (LJ_ACTIVE && timer_elapsed(LJ_RELEASE) > 200) {
-        layer_jump_timeout();
-    }
-
-    // Turn off caps lock after 30 seconds
-    if (CAPS_ACTIVE && timer_elapsed(CAPS_TIMER) > 30000) {
-        tap_code(KC_CAPS);
-        CAPS_ACTIVE = false;
+void housekeeping_task_user(void) {
+    if (is_keyboard_master()) {
+        // Process delayed layer change if timer elapsed
+        if (LJ_PENDING && timer_elapsed(LJ_TIMER) >= LAYER_CHANGE_DELAY) {
+            layer_jump_delay_handler();
+        }
+        // Delayed release
+        if (LJ_ACTIVE && timer_elapsed(LJ_RELEASE) > 200) {
+            layer_jump_timeout();
+        }
+        // Turn off caps lock after 30 seconds
+        if (CAPS_ACTIVE && timer_elapsed(CAPS_TIMER) > 30000) {
+            tap_code(KC_CAPS);
+            CAPS_ACTIVE = false;
+        }
     }
 }
-
+/*
+void matrix_scan_user(void) {
+    if (is_keyboard_master()) {
+    }
+}
+*/
 void caps_rgb_helper(bool active) {
     uint8_t layer;
     if (active) {
@@ -956,33 +957,27 @@ static void handle_scroll_emulation(report_mouse_t* mouse_report) {
 #define     MIN_SCALE 0.0001f
 #define     MAX_SCALE 64.0f
 static void pimoroni_adaptive_scaling(report_mouse_t* mouse_report) {
+
     static float accumulated_factor = MIN_SCALE;
 
-    float x = (float)mouse_report->x;
-    float y = (float)mouse_report->y;
+    // Vector length of raw motion (x and y)
+    float mouse_length = sqrtf((float)(mouse_report->x * mouse_report->x) + (float)(mouse_report->y * mouse_report->y));
 
-    float mouse_length = sqrtf(x * x + y * y);
-
+    // Compute instantaneous scaling factor and update exponential moving average
     float factor = GROWTH_FACTOR * mouse_length + MIN_SCALE;
 
+    // Update exponential moving average of scaling factor
     accumulated_factor = accumulated_factor * (1.0f - MOMENTUM) + factor * MOMENTUM;
 
     if (accumulated_factor > MAX_SCALE) {
-        accumulated_factor = MAX_SCALE;
+        // Clamp scaling factor to avoid overflow
+        mouse_report->x = (int16_t)(mouse_report->x * MAX_SCALE);
+        mouse_report->y = (int16_t)(mouse_report->y * MAX_SCALE);
+    } else {
+        // Scale mouse movement by average factor
+        mouse_report->x = (int16_t)(mouse_report->x * accumulated_factor);
+        mouse_report->y = (int16_t)(mouse_report->y * accumulated_factor);
     }
-
-    int32_t scaled_x = (int32_t)(x * accumulated_factor);
-    int32_t scaled_y = (int32_t)(y * accumulated_factor);
-
-    // Clamp to int16_t range to avoid overflow
-    if (scaled_x > 32767) scaled_x = 32767;
-    else if (scaled_x < -32768) scaled_x = -32768;
-
-    if (scaled_y > 32767) scaled_y = 32767;
-    else if (scaled_y < -32768) scaled_y = -32768;
-
-    mouse_report->x = (int16_t)scaled_x;
-    mouse_report->y = (int16_t)scaled_y;
 }
 
 // Handles emulation state of trackballs
@@ -1145,10 +1140,6 @@ report_mouse_t pointing_device_task_combined_user(report_mouse_t left_report, re
 -Refine keycode placements for my usage style [Needs to be refined slowly over time]
 -Add incrementer with modifer-shifting to change what to increment
 
----------Received Warnings on Compile after implementing Caps Lock Stuff
-[WARNINGS]
- | lto-wrapper.exe: warning: using serial compilation of 2 LTRANS jobs
- | lto-wrapper.exe: note: see the '-flto' option documentation for more information
 
 -- Log of changes: --
 
