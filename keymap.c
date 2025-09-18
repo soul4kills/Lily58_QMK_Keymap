@@ -535,7 +535,7 @@ uint16_t get_tapping_term(
         case MT_G:
         case MT_H:
         case MT_J:
-            return 250;
+            return 280;
         case LT(1, KC_MPLY):
         case LT(2, KC_MUTE):
         case MT(MOD_LALT,KC_DEL):
@@ -785,6 +785,8 @@ static void user_sync_slave_handler(
     uint8_t         out_buflen,
     void*           out_data) {
 
+    if (is_keyboard_master()) return; // Safety: ignore if master
+
     if (in_buflen < 2) return;
     const uint8_t *bytes = (const uint8_t *)in_data;
     uint8_t type = bytes[0];
@@ -811,9 +813,10 @@ void keyboard_post_init_user(void) {
     // pointing_device_set_cpi_on_side(true, 8000);   // Left side: low CPI for scrolling
     // pointing_device_set_cpi_on_side(false, 16000); // Right side: high CPI for standard usage
 
-    // Register the RPC handler
-    transaction_register_rpc(USER_SYNC, user_sync_slave_handler);
-
+    // Register the RPC handler only on slave side
+    if (!is_keyboard_master()) {
+        transaction_register_rpc(USER_SYNC, user_sync_slave_handler);
+    }
     // Set initial RGB color for base layer
     set_trackball_rgb_for_layer(0);
     // Resets BTN_SWAP for SLAVE on reset, throws off RGB syncing.
@@ -826,16 +829,18 @@ void keyboard_post_init_user(void) {
 // Handle layer state changes.
 // Updates the trackball RGB color and sends updated layer info to slave devices.
 layer_state_t layer_state_set_user(layer_state_t state) {
-    led_t caps = host_keyboard_led_state();
-    uint8_t layer = get_highest_layer(state);
-    uint8_t sync_layer = layer;
-    // When Caps Lock is active on base layer, use layer 5 (Clear) to indicate Caps Lock RGB
-    // But on other layers, Caps Lock does not change the color
-    if (layer == 0 && caps.caps_lock) {
-        sync_layer = 6;
-    }
+    if (is_keyboard_master()) {
+        led_t caps = host_keyboard_led_state();
+        uint8_t layer = get_highest_layer(state);
+        uint8_t sync_layer = layer;
+        // When Caps Lock is active on base layer, use layer 5 (Clear) to indicate Caps Lock RGB
+        // But on other layers, Caps Lock does not change the color
+        if (layer == 0 && caps.caps_lock) {
+            sync_layer = 6;
+        }
 
-    set_trackball_rgb_for_slave(sync_layer, 2);
+        set_trackball_rgb_for_slave(sync_layer, 2);
+    }
     return state;
 }
 
@@ -863,6 +868,9 @@ void matrix_scan_user(void) {
 }
 */
 void caps_rgb_helper(bool active) {
+
+    if (!is_keyboard_master()) return; // Safety: ignore if slave
+
     uint8_t layer;
     if (active) {
         layer = 6;
@@ -874,14 +882,17 @@ void caps_rgb_helper(bool active) {
 
 // LED Indicator for Caps Lock
 bool led_update_user(led_t led_state) {
-    if (layer_state_is(0)) { // Only update on layer 0
-        caps_rgb_helper(led_state.caps_lock);
-    }
-    if (led_state.caps_lock) {
-        CAPS_TIMER = timer_read();
-        CAPS_ACTIVE = true;
-    } else {
-        CAPS_ACTIVE = false;
+
+    if (is_keyboard_master()) {
+        if (layer_state_is(0)) { // Only update on layer 0
+            caps_rgb_helper(led_state.caps_lock);
+        }
+        if (led_state.caps_lock) {
+            CAPS_TIMER = timer_read();
+            CAPS_ACTIVE = true;
+        } else {
+            CAPS_ACTIVE = false;
+        }
     }
     return true;
     // Requires #define SPLIT_LED_STATE_ENABLE in config.h, OR maybe not, still works without it.
@@ -889,13 +900,15 @@ bool led_update_user(led_t led_state) {
 
 // LED Indicator for Caps Word
 void caps_word_set_user(bool active) {
+
+    if (!is_keyboard_master()) return; // Safety: ignore if slave
+
     if (layer_state_is(0)) { // Only upate on layer 0
         caps_rgb_helper(active);
     }
     // config.h
     // #define DOUBLE_TAP_SHIFT_TURNS_ON_CAPS_WORD
     // #define BOTH_SHIFTS_TURNS_ON_CAPS_WORD
-
 }
 
 // Arrow key simulation constants
@@ -1065,6 +1078,7 @@ static report_mouse_t handle_mouse_mode_rgb(report_mouse_t left_report, report_m
 
     return pointing_device_combine_reports(left_report, right_report);
 }
+
 // Custom Auto Mouse Layer
 static void auto_mouse_layer_handler(report_mouse_t* mouse_report) {
     uint16_t elapsed = timer_elapsed(ATML_TIMER);
@@ -1083,7 +1097,6 @@ static void auto_mouse_layer_handler(report_mouse_t* mouse_report) {
         ATML_ACTIVE = false;
     }
 }
-
 
 report_mouse_t pointing_device_task_combined_user(report_mouse_t left_report, report_mouse_t right_report) {
     if (is_keyboard_master()) {
@@ -1146,6 +1159,9 @@ report_mouse_t pointing_device_task_combined_user(report_mouse_t left_report, re
 
 QK_COMBO_ON	    CM_ON	Turns on Combo feature
 QK_COMBO_OFF	CM_OFF	Turns off Combo feature
+
+9.16.2025
+-Added some runtime checks in master to slave syncing functions to prevent potential loops in communication.
 
 9.04.2025
 -Added Caps Lock timeout
