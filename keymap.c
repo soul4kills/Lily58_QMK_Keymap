@@ -79,6 +79,8 @@ uint16_t    ATML_DELAY = 0;         // Added Delay when key pressed
 #define MAX_WIND    G(KC_UP)        // MINIMIZE WINDOW
 #define SWR_DESK    LSG(KC_RIGHT)   // SEND WINDOW TO RIGHT MONITOR
 #define SWL_DESK    LSG(KC_LEFT)    // SEND WINDOW TO LEFT MONITOR
+#define CC_LARR     S(KC_COMMA)
+#define CC_RARR     S(KC_DOT)
 // Home Row Modifiers
 
 #define MT_F        MT(MOD_LCTL, KC_F)
@@ -453,6 +455,8 @@ enum combos {
     C_CDEL,
     C_CBSP,
     C_PIN,
+    C_LARR,
+    C_RARR,
 };
 
 const uint16_t PROGMEM l_prn[] = {KC_E, KC_W, COMBO_END};
@@ -474,6 +478,9 @@ const uint16_t PROGMEM c_swp[] = {ESC_GRV, KC_1, COMBO_END};
 const uint16_t PROGMEM c_cdel[] = {MT_F, MT_G, COMBO_END};
 const uint16_t PROGMEM c_cbsp[] = {MT_H, MT_J, COMBO_END};
 const uint16_t PROGMEM c_pin[] = {KC_B, LT(1, KC_MPLY), COMBO_END};
+const uint16_t PROGMEM c_larr[] = {KC_C, KC_V, COMBO_END};
+const uint16_t PROGMEM c_rarr[] = {KC_M, KC_COMM, COMBO_END};
+
 
 combo_t key_combos[COMBO_COUNT] = {
     [CL_PRN] = COMBO(l_prn, KC_LPRN),
@@ -495,6 +502,8 @@ combo_t key_combos[COMBO_COUNT] = {
     [C_CDEL] = COMBO(c_cdel, C(KC_DEL)),
     [C_CBSP] = COMBO(c_cbsp, C(KC_BSPC)),
     [C_PIN] = COMBO(c_pin, SE_PW),
+    [C_LARR] = COMBO(c_larr, CC_LARR),
+    [C_RARR] = COMBO(c_rarr, CC_RARR),
 };
 
 #ifdef COMBO_TERM_PER_COMBO
@@ -535,10 +544,10 @@ uint16_t get_tapping_term(
         case MT_G:
         case MT_H:
         case MT_J:
+        case MT(MOD_LALT,KC_DEL):
             return 280;
         case LT(1, KC_MPLY):
         case LT(2, KC_MUTE):
-        case MT(MOD_LALT,KC_DEL):
             return 100;
         case LT(4,KC_NO):
             return 0;

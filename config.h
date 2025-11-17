@@ -56,7 +56,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #define DYNAMIC_KEYMAP_LAYER_COUNT 5
 
 //----
-#define COMBO_COUNT 19  // N is the number of combos you want
+#define COMBO_COUNT 21  // N is the number of combos you want
 #define COMBO_TERM  12  // Combo detection window
 #define EXTRA_SHORT_COMBOS
 //----
