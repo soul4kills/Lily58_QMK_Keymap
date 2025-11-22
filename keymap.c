@@ -31,7 +31,7 @@
 // make lily58/rev1:via:flash -e POINTING_DEVICE=trackball_trackball -e POINTING_DEVICE_POSITION=left -j 8
 // make lily58/rev1:via:flash -e POINTING_DEVICE=trackball_trackball -e POINTING_DEVICE_POSITION=right -j 8
 
-uint16_t    CAPS_TIMER;
+uint32_t    CAPS_TIMER;
 bool        CAPS_ACTIVE = false;
 
 uint8_t     LJ_LAYER;
@@ -53,6 +53,8 @@ bool        ATML = false;           // Off by Default
 bool        ATML_ACTIVE = false;
 uint16_t    ATML_TIMER;
 uint16_t    ATML_DELAY = 0;         // Added Delay when key pressed
+
+uint8_t     cached_highest_layer = 0;
 
 #define     TIMER_LIMITER 500       // Global limiter to prevent excessive timer_read()'s
 #define     ATML_TIMEOUT 1500       // Auto Mouse Layer Timeout
@@ -189,12 +191,13 @@ static bool tap_hold_handler(
         } else {
             record->event.pressed ? register_code16(alt_key) : unregister_code16(alt_key);
             if (MB) { // Resets timers for auto swapping keys/layers
+                uint16_t now = timer_read();
                 if (RGB_MS_ACTIVE && timer_elapsed(RGB_MS_TIMER) > TIMER_LIMITER) {
-                    RGB_MS_TIMER = timer_read();
+                    RGB_MS_TIMER = now;
                     //ATML_ACTIVE = false;
                 }
                 if (ATML_ACTIVE && timer_elapsed(ATML_TIMER) > TIMER_LIMITER) {
-                    ATML_TIMER = timer_read() + ATML_DELAY;
+                    ATML_TIMER = now + ATML_DELAY;
                     //RGB_MS_ACTIVE = false;
                 }
             }
@@ -202,7 +205,7 @@ static bool tap_hold_handler(
     } else {
         // If timer provided, do timed tap/hold behavior
         if (record->event.pressed) {
-                *timer = timer_read();
+            *timer = timer_read();
             if (ATML_TIMER && timer_elapsed(ATML_TIMER) > TIMER_LIMITER) {
                 ATML_TIMER = *timer;
             }
@@ -637,7 +640,7 @@ const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
    |------------+------------+------------+------------+------------+------------|             |          |XXXXXXXXXXXXX|------------+------------+------------+------------+------------+------------|
         LCtrl        Undo         Cut          Copy         Paste       Next                                                 Cycle        Undo         Copy        Delete       Volume        Enter
                                                                                                                             Taskbar                                               Up
-*/       KC_LCTL,     KC_UNDO,      KC_CUT,     KC_COPY,    KC_PASTE,       NX_PR,        KC_NO,                   KC_NO,       CT_TW,       UN_RE,       CO_PA,       DE_CU,       VU_VD,     KC_TRNS,
+*/       KC_LCTL,     KC_UNDO,      KC_CUT,     KC_COPY,    KC_PASTE,       NX_PR,        DF(3),                   KC_NO,       CT_TW,       UN_RE,       CO_PA,       DE_CU,       VU_VD,     KC_TRNS,
 /* |            |            |            |            |            |  Previous  |-------------|          |-------------| Tab Window |    Redo    |    Paste   |     Cut    |    Down    |    RCtrl   |
    `------------+------------+---------+--+---------+--+---------+--+------------/             /          \             \------------+--+---------+--+---------+--+---------+------------+------------'
                                                                        L4             L4                        Space          Space
@@ -666,7 +669,7 @@ const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
    |------------+------------+------------+------------+------------+------------|             |          |             |------------+------------+------------+------------+------------+------------|
         LCtrl        Undo         Cut          Copy         Paste       Next                                                 Cycle        Undo         Copy        Delete       Volume        Enter
                                                                                                                             Taskbar                                               Up
-*/       KC_LCTL,     KC_UNDO,      KC_CUT,     KC_COPY,    KC_PASTE,       NX_PR,LT(1, KC_MPLY),                  PD_PU,       CT_TW,       UN_RE,       CO_PA,       DE_CU,       VU_VD,     KC_TRNS,
+*/       KC_LCTL,     KC_UNDO,      KC_CUT,     KC_COPY,    KC_PASTE,       NX_PR,        DF(0),                  PD_PU,       CT_TW,       UN_RE,       CO_PA,       DE_CU,       VU_VD,     KC_TRNS,
 /* |            |            |            |            |            |  Previous  |-------------|          |-------------| Tab Window |    Redo    |   Paste    |     Cut    |    Down    |    RCtrl   |
    `------------+------------+---------+--+---------+--+---------+--+------------/             /          \             \------------+--+---------+--+---------+--+---------+------------+------------'
 
@@ -805,7 +808,7 @@ static void user_sync_slave_handler(
             break;
         case 2: // BTN_SWAP sync
             BTN_SWAP = (bool)bytes[1];
-            set_trackball_rgb_for_layer(get_highest_layer(layer_state));
+            set_trackball_rgb_for_layer(cached_highest_layer);
             break;
 
     // Requires #define SPLIT_TRANSACTION_IDS_USER USER_SYNC in config.h
@@ -839,8 +842,10 @@ void keyboard_post_init_user(void) {
 // Updates the trackball RGB color and sends updated layer info to slave devices.
 layer_state_t layer_state_set_user(layer_state_t state) {
     if (is_keyboard_master()) {
+
+        cached_highest_layer = get_highest_layer(state);  // ~188 cycles
         led_t caps = host_keyboard_led_state();
-        uint8_t layer = get_highest_layer(state);
+        uint8_t layer = cached_highest_layer;
         uint8_t sync_layer = layer;
         // When Caps Lock is active on base layer, use layer 5 (Clear) to indicate Caps Lock RGB
         // But on other layers, Caps Lock does not change the color
@@ -860,11 +865,11 @@ void housekeeping_task_user(void) {
             layer_jump_delay_handler();
         }
         // Delayed release
-        if (LJ_ACTIVE && timer_elapsed(LJ_RELEASE) > 200) {
+        else if (LJ_ACTIVE && timer_elapsed(LJ_RELEASE) > 200) { // AI FIX Race Condition
             layer_jump_timeout();
         }
         // Turn off caps lock after 30 seconds
-        if (CAPS_ACTIVE && timer_elapsed(CAPS_TIMER) > 30000) {
+        if (CAPS_ACTIVE && timer_elapsed32(CAPS_TIMER) > 30000) {  // AI FIX Counter Overflow
             tap_code(KC_CAPS);
             CAPS_ACTIVE = false;
         }
@@ -884,7 +889,7 @@ void caps_rgb_helper(bool active) {
     if (active) {
         layer = 6;
     } else {
-        layer = get_highest_layer(layer_state);
+        layer = cached_highest_layer;
     }
     set_trackball_rgb_for_slave(layer,2);
 }
@@ -897,7 +902,7 @@ bool led_update_user(led_t led_state) {
             caps_rgb_helper(led_state.caps_lock);
         }
         if (led_state.caps_lock) {
-            CAPS_TIMER = timer_read();
+            CAPS_TIMER = timer_read32(); //AI FIX 32 bit timer read
             CAPS_ACTIVE = true;
         } else {
             CAPS_ACTIVE = false;
@@ -924,8 +929,8 @@ void caps_word_set_user(bool active) {
 #define     ARROW_MOMENTUM 0.99   // Smoothing factor
 #define     ARROW_STEP 6          // Pixel threshold before triggering arrow tap
 // Arrow key accumulators
-int         accumulated_arrow_x = 0;
-int         accumulated_arrow_y = 0;
+// int         accumulated_arrow_x = 0;
+// int         accumulated_arrow_y = 0;
 float       average_arrow_x = 0;
 float       average_arrow_y = 0;
 static void handle_arrow_emulation(report_mouse_t* mouse_report) {
@@ -1081,7 +1086,7 @@ static report_mouse_t handle_mouse_mode_rgb(report_mouse_t left_report, report_m
     } else if (RGB_MS_ACTIVE && timer_elapsed(RGB_MS_TIMER) > RGB_MS_TIMEOUT) {
         RGB_MS_ACTIVE = false;
         led_t caps = host_keyboard_led_state();
-        uint8_t current_layer = caps.caps_lock ? 6 : get_highest_layer(layer_state);
+        uint8_t current_layer = caps.caps_lock ? 6 : cached_highest_layer;
         set_trackball_rgb_for_slave(current_layer, 2);
     }
 
@@ -1133,11 +1138,10 @@ report_mouse_t pointing_device_task_combined_user(report_mouse_t left_report, re
         }
 
         // Handle layer overrides (single call to get_highest_layer)
-        uint8_t highest_layer = get_highest_layer(layer_state);
-        if (highest_layer == 1 || highest_layer == 2) {
+        if (cached_highest_layer  == 1 || cached_highest_layer  == 2) {
             // Incrementing to offset and match emu_mode_t struct index
-            emulate[highest_layer](&left_report);
-            emulate[highest_layer](&right_report);
+            emulate[cached_highest_layer](&left_report);
+            emulate[cached_highest_layer](&right_report);
         }
 
         // Adaptive scaling
