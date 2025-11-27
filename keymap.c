@@ -24,14 +24,16 @@
 #include <transactions.h>
 
 // Required Debugging & Printing
-// #include <print.h>
-// bool debug_ms_reports = false;       // Debug mouse reports
+#ifdef CONSOLE_ENABLE
+#include <print.h>
+bool debug_ms_reports = false;       // Debug mouse reports
+#endif
 
 // Example build commands:
 // make lily58/rev1:via:flash -e POINTING_DEVICE=trackball_trackball -e POINTING_DEVICE_POSITION=left -j 8
 // make lily58/rev1:via:flash -e POINTING_DEVICE=trackball_trackball -e POINTING_DEVICE_POSITION=right -j 8
 
-uint32_t    CAPS_TIMER;
+uint16_t    CAPS_TIMER;
 bool        CAPS_ACTIVE = false;
 
 uint8_t     LJ_LAYER;
@@ -54,11 +56,12 @@ bool        ATML_ACTIVE = false;
 uint16_t    ATML_TIMER;
 uint16_t    ATML_DELAY = 0;         // Added Delay when key pressed
 
-uint8_t     cached_highest_layer = 0;
-
 #define     TIMER_LIMITER 500       // Global limiter to prevent excessive timer_read()'s
 #define     ATML_TIMEOUT 1500       // Auto Mouse Layer Timeout
 #define     RGB_MS_TIMEOUT 1500     // Mouse Mode Timeout
+
+// Cache Active Layer
+uint8_t     LAYER_CACHE = 0;
 
 // Custom Modded Keys
 #define AUD_MENU    C(G(KC_V))      // AUDIO MENU
@@ -90,7 +93,9 @@ uint8_t     cached_highest_layer = 0;
 #define MT_H        MT(MOD_RSFT, KC_H)
 #define MT_J        MT(MOD_RCTL, KC_J)
 
+// Initialize Function for use before declaration
 static void set_trackball_rgb_for_slave(uint8_t, uint8_t);
+/*
 // Unused struct at the moment
 typedef enum incrementer {
     ARROW_MOMENTUM,
@@ -99,7 +104,7 @@ typedef enum incrementer {
     MIN_SCALE,
     MAX_SCALE
 } inc_mode_t;
-
+*/
 // Structs for handle_mouse_buttons()
 typedef enum mouse_button_states {
     MODE_OFF,
@@ -194,18 +199,16 @@ static bool tap_hold_handler(
                 uint16_t now = timer_read();
                 if (RGB_MS_ACTIVE && timer_elapsed(RGB_MS_TIMER) > TIMER_LIMITER) {
                     RGB_MS_TIMER = now;
-                    //ATML_ACTIVE = false;
                 }
                 if (ATML_ACTIVE && timer_elapsed(ATML_TIMER) > TIMER_LIMITER) {
                     ATML_TIMER = now + ATML_DELAY;
-                    //RGB_MS_ACTIVE = false;
                 }
             }
         }
     } else {
         // If timer provided, do timed tap/hold behavior
         if (record->event.pressed) {
-            *timer = timer_read();
+                *timer = timer_read();
             if (ATML_TIMER && timer_elapsed(ATML_TIMER) > TIMER_LIMITER) {
                 ATML_TIMER = *timer;
             }
@@ -357,7 +360,8 @@ bool process_record_user(
 
         case HM_EN: // Home & End
             return tap_hold_handler(KC_HOME, KC_END, &rd1_timer, NULL, true, record);
-/*
+
+#ifdef CONSOLE_ENABLE
         case MS_DEBUG:
             if (record->event.pressed) {
                 debug_enable = !debug_enable;  // Toggle debug output
@@ -368,7 +372,7 @@ bool process_record_user(
                 }
             }
             return false;
-*/
+#endif
         // On shift, backspace turns to KC_KEY
         case BSPC_MINS:
             if (record->event.pressed) {
@@ -397,7 +401,7 @@ bool process_record_user(
                 BTN_SWAP = !BTN_SWAP;
                 layer_jump_timeout();
                 if (is_keyboard_master()) {
-                    uint8_t msg[2] = {2, BTN_SWAP ? 1 : 0};
+                    uint8_t msg[2] = {2, BTN_SWAP};
                     transaction_rpc_send(USER_SYNC, sizeof(msg), msg);
                 }
                 set_trackball_rgb_for_slave(0, 2);
@@ -709,7 +713,8 @@ const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
 */)
 };
 
-/* Debugging Mouse Reports
+#ifdef CONSOLE_ENABLE
+// Debugging Mouse Reports
 // Pass the mouse reports to this function to print debug info if debug is enabled
 void debug_mouse_reports(report_mouse_t left_report, report_mouse_t right_report) {
         uint16_t t = timer_read();
@@ -725,7 +730,7 @@ void debug_mouse_reports(report_mouse_t left_report, report_mouse_t right_report
                     right_report.h, right_report.v, right_report.buttons);
         }
 }
-*/
+#endif
 
 // ------------------------------- //
 //   RGB Layer Synchronization RPC //
@@ -808,7 +813,7 @@ static void user_sync_slave_handler(
             break;
         case 2: // BTN_SWAP sync
             BTN_SWAP = (bool)bytes[1];
-            set_trackball_rgb_for_layer(cached_highest_layer);
+            set_trackball_rgb_for_layer(LAYER_CACHE);
             break;
 
     // Requires #define SPLIT_TRANSACTION_IDS_USER USER_SYNC in config.h
@@ -833,7 +838,7 @@ void keyboard_post_init_user(void) {
     set_trackball_rgb_for_layer(0);
     // Resets BTN_SWAP for SLAVE on reset, throws off RGB syncing.
     if (is_keyboard_master()) {
-        uint8_t msg[2] = {2, BTN_SWAP ? 1 : 0};
+        uint8_t msg[2] = {2, BTN_SWAP};
         transaction_rpc_send(USER_SYNC, sizeof(msg), msg);
     }
 }
@@ -842,14 +847,12 @@ void keyboard_post_init_user(void) {
 // Updates the trackball RGB color and sends updated layer info to slave devices.
 layer_state_t layer_state_set_user(layer_state_t state) {
     if (is_keyboard_master()) {
-
-        cached_highest_layer = get_highest_layer(state);  // ~188 cycles
+        LAYER_CACHE = get_highest_layer(state);
+        uint8_t sync_layer = LAYER_CACHE;
         led_t caps = host_keyboard_led_state();
-        uint8_t layer = cached_highest_layer;
-        uint8_t sync_layer = layer;
         // When Caps Lock is active on base layer, use layer 5 (Clear) to indicate Caps Lock RGB
         // But on other layers, Caps Lock does not change the color
-        if (layer == 0 && caps.caps_lock) {
+        if (sync_layer == 0 && caps.caps_lock) {
             sync_layer = 6;
         }
 
@@ -865,11 +868,11 @@ void housekeeping_task_user(void) {
             layer_jump_delay_handler();
         }
         // Delayed release
-        else if (LJ_ACTIVE && timer_elapsed(LJ_RELEASE) > 200) { // AI FIX Race Condition
+        else if (LJ_ACTIVE && timer_elapsed(LJ_RELEASE) > 200) {
             layer_jump_timeout();
         }
         // Turn off caps lock after 30 seconds
-        if (CAPS_ACTIVE && timer_elapsed32(CAPS_TIMER) > 30000) {  // AI FIX Counter Overflow
+        if (CAPS_ACTIVE && timer_elapsed(CAPS_TIMER) > 30000) {
             tap_code(KC_CAPS);
             CAPS_ACTIVE = false;
         }
@@ -889,7 +892,7 @@ void caps_rgb_helper(bool active) {
     if (active) {
         layer = 6;
     } else {
-        layer = cached_highest_layer;
+        layer = LAYER_CACHE;
     }
     set_trackball_rgb_for_slave(layer,2);
 }
@@ -902,7 +905,7 @@ bool led_update_user(led_t led_state) {
             caps_rgb_helper(led_state.caps_lock);
         }
         if (led_state.caps_lock) {
-            CAPS_TIMER = timer_read32(); //AI FIX 32 bit timer read
+            CAPS_TIMER = timer_read();
             CAPS_ACTIVE = true;
         } else {
             CAPS_ACTIVE = false;
@@ -928,15 +931,21 @@ void caps_word_set_user(bool active) {
 // Arrow key simulation constants
 #define     ARROW_MOMENTUM 0.99   // Smoothing factor
 #define     ARROW_STEP 6          // Pixel threshold before triggering arrow tap
+
 // Arrow key accumulators
-// int         accumulated_arrow_x = 0;
-// int         accumulated_arrow_y = 0;
 float       average_arrow_x = 0;
 float       average_arrow_y = 0;
-static void handle_arrow_emulation(report_mouse_t* mouse_report) {
 
+static void handle_arrow_emulation(report_mouse_t* mouse_report) {
     average_arrow_x = average_arrow_x * ARROW_MOMENTUM + mouse_report->x;
     average_arrow_y = average_arrow_y * ARROW_MOMENTUM + mouse_report->y;
+
+    // Lock to dominant axis
+    if (fabsf(average_arrow_x) > fabsf(average_arrow_y)) {
+        average_arrow_y = 0;
+    } else if (fabsf(average_arrow_y) > fabsf(average_arrow_x)) {
+        average_arrow_x = 0;
+    }
 
     // Trigger arrow taps repeatedly until below threshold
     while (fabsf(average_arrow_x) >= ARROW_STEP) {
@@ -956,15 +965,24 @@ static void handle_arrow_emulation(report_mouse_t* mouse_report) {
 // Scroll speed divisors (higher = slower scrolling)
 #define     SCROLL_DIVISOR_H 8.0
 #define     SCROLL_DIVISOR_V 8.0
+#define     SCROLL_LOCK_THRESHOLD 1  // Ratio threshold for axis locking (higher = less aggressive)
+
 // Accumulated scroll values (for smooth scroll)
 float       scroll_accumulated_h = 0;
 float       scroll_accumulated_v = 0;
-static void handle_scroll_emulation(report_mouse_t* mouse_report) {
 
+static void handle_scroll_emulation(report_mouse_t* mouse_report) {
     scroll_accumulated_h += (float)mouse_report->x / SCROLL_DIVISOR_H;
     scroll_accumulated_v += -(float)mouse_report->y / SCROLL_DIVISOR_V;
 
-    // To apply natural scroll subtract raw motion before assigning to report [-]
+    // Lock to horizontal axis when it's dominant by threshold ratio
+    if (fabsf(scroll_accumulated_h) > fabsf(scroll_accumulated_v) * SCROLL_LOCK_THRESHOLD) {
+        scroll_accumulated_v = 0;
+    } else if (fabsf(scroll_accumulated_v) > fabsf(scroll_accumulated_h) * SCROLL_LOCK_THRESHOLD) {
+        scroll_accumulated_h = 0;
+    }
+
+    // To apply natural scroll subtract raw motion before assigning to report [-], example "-(int16_t)scroll_accumulated_h"
     mouse_report->h = (int16_t)scroll_accumulated_h;
     mouse_report->v = (int16_t)scroll_accumulated_v;
 
@@ -1086,8 +1104,14 @@ static report_mouse_t handle_mouse_mode_rgb(report_mouse_t left_report, report_m
     } else if (RGB_MS_ACTIVE && timer_elapsed(RGB_MS_TIMER) > RGB_MS_TIMEOUT) {
         RGB_MS_ACTIVE = false;
         led_t caps = host_keyboard_led_state();
-        uint8_t current_layer = caps.caps_lock ? 6 : cached_highest_layer;
+        uint8_t current_layer = caps.caps_lock ? 6 : LAYER_CACHE;
         set_trackball_rgb_for_slave(current_layer, 2);
+
+        // Reset all accumulators on timeout
+        average_arrow_x = 0;
+        average_arrow_y = 0;
+        scroll_accumulated_h = 0;
+        scroll_accumulated_v = 0;
     }
 
     return pointing_device_combine_reports(left_report, right_report);
@@ -1101,7 +1125,7 @@ static void auto_mouse_layer_handler(report_mouse_t* mouse_report) {
         if (!ATML_ACTIVE) {
             layer_on(3);
             ATML_ACTIVE = true;
-            RGB_MS_ACTIVE = false;
+            RGB_MS_ACTIVE = false; // REMOVE??
         }
         if (elapsed > TIMER_LIMITER) {
             ATML_TIMER = timer_read();
@@ -1137,11 +1161,10 @@ report_mouse_t pointing_device_task_combined_user(report_mouse_t left_report, re
             emulate[right_button.mode](&right_report);
         }
 
-        // Handle layer overrides (single call to get_highest_layer)
-        if (cached_highest_layer  == 1 || cached_highest_layer  == 2) {
+        if (LAYER_CACHE == 1 || LAYER_CACHE == 2) {
             // Incrementing to offset and match emu_mode_t struct index
-            emulate[cached_highest_layer](&left_report);
-            emulate[cached_highest_layer](&right_report);
+            emulate[LAYER_CACHE](&left_report);
+            emulate[LAYER_CACHE](&right_report);
         }
 
         // Adaptive scaling
