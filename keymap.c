@@ -15,9 +15,8 @@
  */
 
 #include QMK_KEYBOARD_H
-#include <action.h>
-#include <math.h>
-#include <stdio.h>
+// #include <action.h>
+// #include <math.h> // Only need for advanced math fabsf(), sqrtf()
 
 // Required for RPC communication functions
 #include <split_util.h>
@@ -25,6 +24,7 @@
 
 // Required Debugging & Printing
 #ifdef CONSOLE_ENABLE
+#include <stdio.h>
 #include <print.h>
 bool debug_ms_reports = false;       // Debug mouse reports
 #endif
@@ -44,8 +44,8 @@ bool        LJ_PENDING = false;
 uint16_t    LJ_TIMER = 0;
 #define     LAYER_CHANGE_DELAY 200  // Delay before switching layers
 
-bool        BTN_SWAP = false;       // If true, swap the behavior of O_ & I_ keycodes
-float       GROWTH_FACTOR = 8;      // Moved here to retain value across key presses
+bool        BTN_SWAP = true;       // If true, swap the behavior of O_ & I_ keycodes
+uint8_t     GROWTH_FACTOR = 8;      // Moved here to retain value across key presses
 uint8_t     RGB_CURRENT;            // Holds current RGB color, Used in mouse handle_mouse_mode_rgb() to prevent unecessary calls
 
 bool        RGB_MS_ACTIVE = false;  // RGB Emulation Mode Arrow/Scroll
@@ -132,7 +132,7 @@ static void layer_jump_timeout(void) {
 }
 
 // Process delayed layer change when delay expires
-void layer_jump_delay_handler(void) {
+static void layer_jump_delay_handler(void) {
     // Turn off the other layer and enable the delayed one
     layer_off(LJ_LAYER == 1 ? 2 : 1);
     layer_on(LJ_LAYER);
@@ -188,9 +188,10 @@ static bool tap_hold_handler(
         // This is for Mouse Keys Swapping or if BTN_SWAP is toggled
         // If no timer provided, just do simple tap/hold without timing
         // Resets Mouse Mode timer in handle_mouse_mode_rgb()
+        /* Haven't really used.
         if (is_caps_word_on()) {
             add_weak_mods(MOD_BIT(KC_LSFT));
-        }
+        }*/
         if (condition) {
             record->event.pressed ? register_code16(tap_key) : unregister_code16(tap_key);
         } else {
@@ -209,7 +210,8 @@ static bool tap_hold_handler(
         // If timer provided, do timed tap/hold behavior
         if (record->event.pressed) {
                 *timer = timer_read();
-            if (ATML_TIMER && timer_elapsed(ATML_TIMER) > TIMER_LIMITER) {
+            // Reset Auto Mouse Layer Timeout if keys are used
+            if (ATML_ACTIVE && timer_elapsed(ATML_TIMER) > TIMER_LIMITER) {
                 ATML_TIMER = *timer;
             }
         } else {
@@ -261,8 +263,10 @@ enum custom_keycodes {
     CW_FS,                  // 97
     SE_PW,                  // 98
     PD_PU,                  // 99
-    HM_EN                   // 100
-//    MS_DEBUG,               // 79
+    HM_EN,                  // 100
+    R_SHIFT,                // 101
+    L_SHIFT
+//    MS_DEBUG,
 };
 
 // Custom Keycodes End
@@ -286,7 +290,7 @@ bool process_record_user(
             return true;
 
         case O_CAPS_L1:
-            return layer_jump_handler(KC_SPC, KC_SPC, 1, &le1_timer, BTN_SWAP, record);
+            return layer_jump_handler(KC_SPC, KC_CAPS, 1, &le1_timer, BTN_SWAP, record);
 
         case O_SPC_L2:
             return layer_jump_handler(KC_NO, KC_NO, 2, &ri1_timer, BTN_SWAP, record);
@@ -309,6 +313,12 @@ bool process_record_user(
 
         case L_MB2:
             return tap_hold_handler(KC_R, KC_MS_BTN2, NULL, !RGB_MS_ACTIVE, true, record);
+
+        case R_SHIFT:
+            return tap_hold_handler(KC_K, KC_LSFT, NULL, !RGB_MS_ACTIVE, true, record);
+
+        case L_SHIFT:
+            return tap_hold_handler(KC_D, KC_LSFT, NULL, !RGB_MS_ACTIVE, true, record);
 
         case ML_MB1:
             return tap_hold_handler(KC_MS_BTN1, KC_MS_BTN1, NULL, !ATML_ACTIVE, true, record);
@@ -418,13 +428,13 @@ bool process_record_user(
         // Incrementer
         case FX_SLV_M: // Reduce growth factor
             if (record->event.pressed) {
-                GROWTH_FACTOR /= 2;
+                GROWTH_FACTOR -= 1;
             }
             return false;
 
         case FX_SLV_P: // Increase growth factor
             if (record->event.pressed) {
-                GROWTH_FACTOR *= 2;
+                GROWTH_FACTOR += 1;
             }
             return false;
 
@@ -468,12 +478,12 @@ enum combos {
 
 const uint16_t PROGMEM l_prn[] = {KC_E, KC_W, COMBO_END};
 const uint16_t PROGMEM r_prn[] = {KC_I, KC_O, COMBO_END};
-const uint16_t PROGMEM l_cbr[] = {KC_D, KC_S, COMBO_END};
-const uint16_t PROGMEM r_cbr[] = {KC_L, KC_K, COMBO_END};
+const uint16_t PROGMEM l_cbr[] = {L_SHIFT, KC_S, COMBO_END};
+const uint16_t PROGMEM r_cbr[] = {KC_L, R_SHIFT, COMBO_END};
 const uint16_t PROGMEM l_brc[] = {KC_C, KC_X, COMBO_END};
 const uint16_t PROGMEM r_brc[] = {KC_DOT, KC_COMM, COMBO_END};
-const uint16_t PROGMEM l_del[] = {MT_F, KC_D, COMBO_END};
-const uint16_t PROGMEM r_bsp[] = {KC_K, MT_J, COMBO_END};
+const uint16_t PROGMEM l_del[] = {MT_F, L_SHIFT, COMBO_END};
+const uint16_t PROGMEM r_bsp[] = {R_SHIFT, MT_J, COMBO_END};
 const uint16_t PROGMEM l_mmb[] = {L_MB1, L_MB2, COMBO_END};
 const uint16_t PROGMEM r_mmb[] = {R_MB1, R_MB2, COMBO_END};
 const uint16_t PROGMEM m_mmb[] = {ML_MB1, ML_MB2, COMBO_END};
@@ -581,7 +591,7 @@ const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
    |------------+------------+------------+------------+------------+------------|                                      |------------+------------+------------+------------+------------+------------|
         LShift        A            S            D            F            G                                                    H           J            K             L            ;           '
                                         [ { ]       [ DEL ]  [ CTRL + DEL ]                                                   [ CTRL + BSPC ]  [ BSPC ]      [ } ]
-*/       KC_LSFT,        KC_A,        KC_S,        KC_D,        MT_F,        MT_G,                                               MT_H,        MT_J,        KC_K,        KC_L,     KC_SCLN, MT(MOD_RSFT,KC_QUOT),
+*/       KC_LSFT,        KC_A,        KC_S,     L_SHIFT,        MT_F,        MT_G,                                               MT_H,        MT_J,     R_SHIFT,        KC_L,     KC_SCLN, MT(MOD_RSFT,KC_QUOT),
 /* |            |            |            |            |    Ctrl    |   Shift    |-------------.          ,-------------|   Shift    |    Ctrl    |            |            |            |   RShift   |
    |------------+------------+------------+------------+------------+------------|     Play    |          |    Mute     |------------+------------+------------+------------+------------+------------|
         LCtrl         Z            X            C            V            B             L1                      L2             N           M            ,             .            /          Enter
@@ -802,7 +812,7 @@ static void user_sync_slave_handler(
     uint8_t         out_buflen,
     void*           out_data) {
 
-    if (is_keyboard_master()) return; // Safety: ignore if master
+    if (is_keyboard_master()) return;
 
     if (in_buflen < 2) return;
     const uint8_t *bytes = (const uint8_t *)in_data;
@@ -863,12 +873,17 @@ layer_state_t layer_state_set_user(layer_state_t state) {
 
 void housekeeping_task_user(void) {
     if (is_keyboard_master()) {
+        static uint16_t last_check = 0;
+
+        // Early return if less than 100ms has passed
+        if (timer_elapsed(last_check) < 200) {
+            return;
+        }
+        last_check = timer_read();
         // Process delayed layer change if timer elapsed
         if (LJ_PENDING && timer_elapsed(LJ_TIMER) >= LAYER_CHANGE_DELAY) {
             layer_jump_delay_handler();
-        }
-        // Delayed release
-        else if (LJ_ACTIVE && timer_elapsed(LJ_RELEASE) > 200) {
+        } else if (LJ_ACTIVE && timer_elapsed(LJ_RELEASE) > 200) {    // Delayed release
             layer_jump_timeout();
         }
         // Turn off caps lock after 30 seconds
@@ -886,7 +901,7 @@ void matrix_scan_user(void) {
 */
 void caps_rgb_helper(bool active) {
 
-    if (!is_keyboard_master()) return; // Safety: ignore if slave
+    if (!is_keyboard_master()) return;
 
     uint8_t layer;
     if (active) {
@@ -918,7 +933,7 @@ bool led_update_user(led_t led_state) {
 // LED Indicator for Caps Word
 void caps_word_set_user(bool active) {
 
-    if (!is_keyboard_master()) return; // Safety: ignore if slave
+    if (!is_keyboard_master()) return;
 
     if (layer_state_is(0)) { // Only upate on layer 0
         caps_rgb_helper(active);
@@ -929,100 +944,107 @@ void caps_word_set_user(bool active) {
 }
 
 // Arrow key simulation constants
-#define     ARROW_MOMENTUM 0.99   // Smoothing factor
-#define     ARROW_STEP 6          // Pixel threshold before triggering arrow tap
+#define ARROW_STEP 6          // Pixel threshold before triggering arrow tap
 
-// Arrow key accumulators
-float       average_arrow_x = 0;
-float       average_arrow_y = 0;
+// Arrow key accumulators (scaled by 100 for precision)
+int32_t average_arrow_x = 0;
+int32_t average_arrow_y = 0;
 
 static void handle_arrow_emulation(report_mouse_t* mouse_report) {
-    average_arrow_x = average_arrow_x * ARROW_MOMENTUM + mouse_report->x;
-    average_arrow_y = average_arrow_y * ARROW_MOMENTUM + mouse_report->y;
+    // Accumulate with momentum: avg = avg * 0.99 + new_value
+    // (multiply by 100 internally, so 99/100 = 0.99)
+    average_arrow_x = (average_arrow_x * 99) / 100 + mouse_report->x * 100;
+    average_arrow_y = (average_arrow_y * 99) / 100 + mouse_report->y * 100;
 
     // Lock to dominant axis
-    if (fabsf(average_arrow_x) > fabsf(average_arrow_y)) {
+    int32_t abs_x = (average_arrow_x < 0) ? -average_arrow_x : average_arrow_x;
+    int32_t abs_y = (average_arrow_y < 0) ? -average_arrow_y : average_arrow_y;
+
+    if (abs_x > abs_y) {
         average_arrow_y = 0;
-    } else if (fabsf(average_arrow_y) > fabsf(average_arrow_x)) {
+    } else if (abs_y > abs_x) {
         average_arrow_x = 0;
     }
 
-    // Trigger arrow taps repeatedly until below threshold
-    while (fabsf(average_arrow_x) >= ARROW_STEP) {
+    // Trigger arrow taps (divide by 100 to convert back to pixels)
+    int32_t threshold = ARROW_STEP * 100;
+    while (abs_x >= threshold) {
         tap_code((average_arrow_x > 0) ? KC_RIGHT : KC_LEFT);
-        average_arrow_x += (average_arrow_x > 0) ? -ARROW_STEP : ARROW_STEP;
+        average_arrow_x += (average_arrow_x > 0) ? -threshold : threshold;
+        abs_x = (average_arrow_x < 0) ? -average_arrow_x : average_arrow_x;
     }
-    while (fabsf(average_arrow_y) >= ARROW_STEP) {
+    while (abs_y >= threshold) {
         tap_code((average_arrow_y > 0) ? KC_DOWN : KC_UP);
-        average_arrow_y += (average_arrow_y > 0) ? -ARROW_STEP : ARROW_STEP;
+        average_arrow_y += (average_arrow_y > 0) ? -threshold : threshold;
+        abs_y = (average_arrow_y < 0) ? -average_arrow_y : average_arrow_y;
     }
 
-    // Suppress raw motion (replace with taps only)
     mouse_report->x = 0;
     mouse_report->y = 0;
 }
 
-// Scroll speed divisors (higher = slower scrolling)
-#define     SCROLL_DIVISOR_H 8.0
-#define     SCROLL_DIVISOR_V 8.0
-#define     SCROLL_LOCK_THRESHOLD 1  // Ratio threshold for axis locking (higher = less aggressive)
+// Scroll speed divisors
+#define SCROLL_DIVISOR_H 8
+#define SCROLL_DIVISOR_V 8
+#define SCROLL_LOCK_THRESHOLD 1  // Ratio threshold for axis locking (higher = less aggressive)
 
-// Accumulated scroll values (for smooth scroll)
-float       scroll_accumulated_h = 0;
-float       scroll_accumulated_v = 0;
+// Accumulated scroll values (scaled by 100)
+int32_t scroll_accumulated_h = 0;
+int32_t scroll_accumulated_v = 0;
 
 static void handle_scroll_emulation(report_mouse_t* mouse_report) {
-    scroll_accumulated_h += (float)mouse_report->x / SCROLL_DIVISOR_H;
-    scroll_accumulated_v += -(float)mouse_report->y / SCROLL_DIVISOR_V;
+    // Accumulate scroll (multiply by 100/divisor for precision)
+    scroll_accumulated_h += (mouse_report->x * 100) / SCROLL_DIVISOR_H;
+    scroll_accumulated_v += (-mouse_report->y * 100) / SCROLL_DIVISOR_V;
 
-    // Lock to horizontal axis when it's dominant by threshold ratio
-    if (fabsf(scroll_accumulated_h) > fabsf(scroll_accumulated_v) * SCROLL_LOCK_THRESHOLD) {
+    // Lock to dominant axis
+    int32_t abs_h = (scroll_accumulated_h < 0) ? -scroll_accumulated_h : scroll_accumulated_h;
+    int32_t abs_v = (scroll_accumulated_v < 0) ? -scroll_accumulated_v : scroll_accumulated_v;
+
+    if (abs_h > abs_v * SCROLL_LOCK_THRESHOLD) {
         scroll_accumulated_v = 0;
-    } else if (fabsf(scroll_accumulated_v) > fabsf(scroll_accumulated_h) * SCROLL_LOCK_THRESHOLD) {
+    } else if (abs_v > abs_h * SCROLL_LOCK_THRESHOLD) {
         scroll_accumulated_h = 0;
     }
 
-    // To apply natural scroll subtract raw motion before assigning to report [-], example "-(int16_t)scroll_accumulated_h"
-    mouse_report->h = (int16_t)scroll_accumulated_h;
-    mouse_report->v = (int16_t)scroll_accumulated_v;
+    // Convert to integer for report (divide by 100)
+    mouse_report->h = (int16_t)(scroll_accumulated_h / 100);
+    mouse_report->v = (int16_t)(scroll_accumulated_v / 100);
 
-    // Retain fractional scroll remainders
-    scroll_accumulated_h -= (int16_t)scroll_accumulated_h;
-    scroll_accumulated_v -= (int16_t)scroll_accumulated_v;
+    // Retain fractional remainders
+    scroll_accumulated_h -= mouse_report->h * 100;
+    scroll_accumulated_v -= mouse_report->v * 100;
 
-    // Suppress raw motion (replace with scrolling only)
     mouse_report->x = 0;
     mouse_report->y = 0;
 }
 
-// Adaptive Scaling (Trackballs)
-// Non-linear scaling constants
-// #define GROWTH_FACTOR 8.0f - moved to global variable for runtime adjustment
-#define     MOMENTUM 0.06f //Smooths out movement, lower = precision, 0.075 was the best balance
-#define     MIN_SCALE 0.0001f
-#define     MAX_SCALE 64.0f
+// Adaptive Scaling Constants
+//#define GROWTH_FACTOR 8 - defined at top for runtime adjustment
+#define MIN_SCALE 1      // Minimum scale (scaled by 1000, so 1 = 0.001)
+#define MAX_SCALE 64000  // Maximum scale (scaled by 1000, so 64000 = 64.0)
+
 static void pimoroni_adaptive_scaling(report_mouse_t* mouse_report) {
+    static int32_t accumulated_factor = MIN_SCALE;  // Scaled by 1000
 
-    static float accumulated_factor = MIN_SCALE;
+    // Simple approximate magnitude (Manhattan distance is faster than true length)
+    int32_t abs_x = (mouse_report->x < 0) ? -mouse_report->x : mouse_report->x;
+    int32_t abs_y = (mouse_report->y < 0) ? -mouse_report->y : mouse_report->y;
+    int32_t mouse_length = abs_x + abs_y;
 
-    // Vector length of raw motion (x and y)
-    float mouse_length = sqrtf((float)(mouse_report->x * mouse_report->x) + (float)(mouse_report->y * mouse_report->y));
+    // Compute factor: GROWTH_FACTOR * mouse_length + MIN_SCALE
+    int32_t factor = GROWTH_FACTOR * mouse_length * 1000 + MIN_SCALE;
 
-    // Compute instantaneous scaling factor and update exponential moving average
-    float factor = GROWTH_FACTOR * mouse_length + MIN_SCALE;
+    // Exponential moving average: accumulated = accumulated * 0.94 + factor * 0.06
+    accumulated_factor = (accumulated_factor * 94 + factor * 6) / 100;
 
-    // Update exponential moving average of scaling factor
-    accumulated_factor = accumulated_factor * (1.0f - MOMENTUM) + factor * MOMENTUM;
-
+    // Clamp and apply scaling
     if (accumulated_factor > MAX_SCALE) {
-        // Clamp scaling factor to avoid overflow
-        mouse_report->x = (int16_t)(mouse_report->x * MAX_SCALE);
-        mouse_report->y = (int16_t)(mouse_report->y * MAX_SCALE);
-    } else {
-        // Scale mouse movement by average factor
-        mouse_report->x = (int16_t)(mouse_report->x * accumulated_factor);
-        mouse_report->y = (int16_t)(mouse_report->y * accumulated_factor);
+        accumulated_factor = MAX_SCALE;
     }
+
+    mouse_report->x = (int16_t)((mouse_report->x * accumulated_factor) / 1000);
+    mouse_report->y = (int16_t)((mouse_report->y * accumulated_factor) / 1000);
 }
 
 // Handles emulation state of trackballs

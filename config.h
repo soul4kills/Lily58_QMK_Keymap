@@ -38,7 +38,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #define TAPPING_TERM_PER_KEY
 #define TAPPING_FORCE_HOLD
 // #define PERMISSIVE_HOLD // Interferes with custom modded tapping terms
-#define BOTH_SHIFTS_TURNS_ON_CAPS_WORD
+//#define BOTH_SHIFTS_TURNS_ON_CAPS_WORD
 //#define DOUBLE_TAP_SHIFT_TURNS_ON_CAPS_WORD
 
 #define PIMORONI_TRACKBALL_SCALE 2
