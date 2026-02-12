@@ -44,8 +44,8 @@ bool        LJ_PENDING = false;
 uint16_t    LJ_TIMER = 0;
 #define     LAYER_CHANGE_DELAY 200  // Delay before switching layers
 
-bool        BTN_SWAP = true;       // If true, swap the behavior of O_ & I_ keycodes
-uint8_t     GROWTH_FACTOR = 8;      // Moved here to retain value across key presses
+bool        BTN_SWAP = true;        // If true, swap the behavior of O_ & I_ keycodes
+uint8_t     GROWTH_FACTOR = 8;      // Moved here to for runtime adjustments with FX_SLV_M & FX_SLV_P
 uint8_t     RGB_CURRENT;            // Holds current RGB color, Used in mouse handle_mouse_mode_rgb() to prevent unecessary calls
 
 bool        RGB_MS_ACTIVE = false;  // RGB Emulation Mode Arrow/Scroll
@@ -262,7 +262,7 @@ enum custom_keycodes {
     DE_CU,                  // 96
     CW_FS,                  // 97
     SE_PW,                  // 98
-    PD_PU,                  // 99
+    PU_PD,                  // 99
     HM_EN,                  // 100
     R_SHIFT,                // 101
     L_SHIFT
@@ -365,8 +365,8 @@ bool process_record_user(
         case DL_DR: // VIRTUAL DESKOP LEFT & VIRTUAL DESKTOP RIGHT
             return tap_hold_handler(G(C(KC_LEFT)), G(C(KC_RIGHT)), &rd1_timer, NULL, true, record);
 
-        case PD_PU: // Page Down & Page Up
-            return tap_hold_handler(KC_PGDN, KC_PGUP, &rd1_timer, NULL, true, record);
+        case PU_PD: //  Page Up & Page Down
+            return tap_hold_handler(KC_PGUP, KC_PGDN, &rd1_timer, NULL, true, record);
 
         case HM_EN: // Home & End
             return tap_hold_handler(KC_HOME, KC_END, &rd1_timer, NULL, true, record);
@@ -562,7 +562,7 @@ uint16_t get_tapping_term(
         case MT_H:
         case MT_J:
         case MT(MOD_LALT,KC_DEL):
-            return 280;
+            return 250;
         case LT(1, KC_MPLY):
         case LT(2, KC_MUTE):
             return 100;
@@ -620,18 +620,18 @@ const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
    |------------+------------+------------+------------+------------+------------|                                      |------------+------------+------------+------------+------------+------------|
        LShift                     Left         Down         Right                                                              *           4            5            6             +       Page Down
 
-*/       KC_LSFT,       KC_NO,     KC_LEFT,     KC_DOWN,     KC_RGHT,       KC_NO,                                            KC_ASTR,       KC_P4,       KC_P5,       KC_P6,     KC_PPLS,     KC_PGDN,
+*/       KC_LSFT,    KC_AGAIN,     KC_LEFT,     KC_DOWN,     KC_RGHT,       PU_PD,                                            KC_ASTR,       KC_P4,       KC_P5,       KC_P6,     KC_PPLS,     KC_PGDN,
 /* |            |            |            |            |            |            |-------------.          ,-------------|            |            |            |            |            |            |
    |------------+------------+------------+------------+------------+------------|XXXXXXXXXXXXX|          |             |------------+------------+------------+------------+------------+------------|
         LCtrl        Undo         Cut          Copy         Paste        Next                                             Scroll Lock       1            2            3           Enter        Enter
 
-*/       KC_LCTL,       UN_RE,      KC_CUT,     KC_COPY,    KC_PASTE,       NX_PR,        KC_NO,               KC_INSERT,     KC_SCRL,       KC_P1,       KC_P2,       KC_P3,      KC_ENT,     KC_TRNS,
+*/       KC_LCTL,       UN_RE,      KC_CUT,     KC_COPY,    KC_PASTE,       NX_PR,        DF(3),               KC_INSERT,     KC_SCRL,       KC_P1,       KC_P2,       KC_P3,      KC_ENT,     KC_TRNS,
 /* |            |    Redo    |            |            |            |  Previous  |-------------|          |-------------|            |            |            |            |            |    RCtrl   |
    `------------+------------+---------+--+---------+--+---------+--+------------/             /          \             \------------+--+---------+--+---------+--+---------+------------+------------'
                                                                       Space          Space                      Space            L4           0             .
                                        |            |            |     L2     | /     L2      /            \             \ |            |            |            |
                                        |            |            |            |/             /              \             \|            |            |            |
-*/ 	                                         KC_TRNS,     KC_TRNS,    I_SPC_L2,     O_SPC_L2,                        KC_SPC, LT(4,KC_NO),       KC_P0,     KC_PDOT
+*/ 	                                         KC_TRNS,      KC_ENT,    I_SPC_L2,     O_SPC_L2,                        KC_SPC, LT(4,KC_NO),       KC_P0,     KC_PDOT
 /*                                     `------------+------------+------------+-------------'                '-------------+------------+------------+------------'
 */),
 [2] = LAYOUT(
@@ -654,7 +654,7 @@ const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
    |------------+------------+------------+------------+------------+------------|             |          |XXXXXXXXXXXXX|------------+------------+------------+------------+------------+------------|
         LCtrl        Undo         Cut          Copy         Paste       Next                                                 Cycle        Undo         Copy        Delete       Volume        Enter
                                                                                                                             Taskbar                                               Up
-*/       KC_LCTL,     KC_UNDO,      KC_CUT,     KC_COPY,    KC_PASTE,       NX_PR,        DF(3),                   KC_NO,       CT_TW,       UN_RE,       CO_PA,       DE_CU,       VU_VD,     KC_TRNS,
+*/       KC_LCTL,     KC_UNDO,      KC_CUT,     KC_COPY,    KC_PASTE,       NX_PR,        KC_NO,                   DF(3),       CT_TW,       UN_RE,       CO_PA,       DE_CU,       VU_VD,     KC_TRNS,
 /* |            |            |            |            |            |  Previous  |-------------|          |-------------| Tab Window |    Redo    |    Paste   |     Cut    |    Down    |    RCtrl   |
    `------------+------------+---------+--+---------+--+---------+--+------------/             /          \             \------------+--+---------+--+---------+--+---------+------------+------------'
                                                                        L4             L4                        Space          Space
@@ -683,7 +683,7 @@ const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
    |------------+------------+------------+------------+------------+------------|             |          |             |------------+------------+------------+------------+------------+------------|
         LCtrl        Undo         Cut          Copy         Paste       Next                                                 Cycle        Undo         Copy        Delete       Volume        Enter
                                                                                                                             Taskbar                                               Up
-*/       KC_LCTL,     KC_UNDO,      KC_CUT,     KC_COPY,    KC_PASTE,       NX_PR,        DF(0),                  PD_PU,       CT_TW,       UN_RE,       CO_PA,       DE_CU,       VU_VD,     KC_TRNS,
+*/       KC_LCTL,     KC_UNDO,      KC_CUT,     KC_COPY,    KC_PASTE,       NX_PR,        DF(0),                  PU_PD,       CT_TW,       UN_RE,       CO_PA,       DE_CU,       VU_VD,     KC_TRNS,
 /* |            |            |            |            |            |  Previous  |-------------|          |-------------| Tab Window |    Redo    |   Paste    |     Cut    |    Down    |    RCtrl   |
    `------------+------------+---------+--+---------+--+---------+--+------------/             /          \             \------------+--+---------+--+---------+--+---------+------------+------------'
 
@@ -876,7 +876,7 @@ void housekeeping_task_user(void) {
         static uint16_t last_check = 0;
 
         // Early return if less than 100ms has passed
-        if (timer_elapsed(last_check) < 200) {
+        if (timer_elapsed(last_check) < 50) {
             return;
         }
         last_check = timer_read();
@@ -944,7 +944,7 @@ void caps_word_set_user(bool active) {
 }
 
 // Arrow key simulation constants
-#define ARROW_STEP 6          // Pixel threshold before triggering arrow tap
+#define ARROW_STEP 8          // Pixel threshold before triggering arrow tap
 
 // Arrow key accumulators (scaled by 100 for precision)
 int32_t average_arrow_x = 0;
@@ -986,35 +986,47 @@ static void handle_arrow_emulation(report_mouse_t* mouse_report) {
 // Scroll speed divisors
 #define SCROLL_DIVISOR_H 8
 #define SCROLL_DIVISOR_V 8
-#define SCROLL_LOCK_THRESHOLD 1  // Ratio threshold for axis locking (higher = less aggressive)
+#define SCROLL_LOCK_THRESHOLD 100   // Scaled by 100: 100 = 1.0x ratio (lock when strictly unequal)
+                                    // Examples: 50 = 0.5x (aggressive), 150 = 1.5x (lenient), 200 = 2.0x
 
-// Accumulated scroll values (scaled by 100)
+// Accumulated scroll values (scaled by 100 to preserve fractional precision)
+// Example: scroll_accumulated_h = 375 represents 3.75 scroll units
 int32_t scroll_accumulated_h = 0;
 int32_t scroll_accumulated_v = 0;
 
 static void handle_scroll_emulation(report_mouse_t* mouse_report) {
     // Accumulate scroll (multiply by 100/divisor for precision)
+    // Example: x=3, divisor=8: (3 * 100) / 8 = 37, representing 0.37 scroll units
     scroll_accumulated_h += (mouse_report->x * 100) / SCROLL_DIVISOR_H;
     scroll_accumulated_v += (-mouse_report->y * 100) / SCROLL_DIVISOR_V;
 
     // Lock to dominant axis
+    // Calculate absolute values to compare magnitudes regardless of direction
     int32_t abs_h = (scroll_accumulated_h < 0) ? -scroll_accumulated_h : scroll_accumulated_h;
     int32_t abs_v = (scroll_accumulated_v < 0) ? -scroll_accumulated_v : scroll_accumulated_v;
 
-    if (abs_h > abs_v * SCROLL_LOCK_THRESHOLD) {
-        scroll_accumulated_v = 0;
-    } else if (abs_v > abs_h * SCROLL_LOCK_THRESHOLD) {
-        scroll_accumulated_h = 0;
+    // Compare using scaled threshold to determine if one axis dominates
+    // Formula: abs_h * 100 > abs_v * SCROLL_LOCK_THRESHOLD
+    // Example with THRESHOLD=150 (1.5x): if abs_h=200, abs_v=100
+    //   200 * 100 = 20000 > 100 * 150 = 15000, so horizontal dominates
+    if (abs_h * 100 > abs_v * SCROLL_LOCK_THRESHOLD) {
+        scroll_accumulated_v = 0;  // Lock to horizontal
+    } else if (abs_v * 100 > abs_h * SCROLL_LOCK_THRESHOLD) {
+        scroll_accumulated_h = 0;  // Lock to vertical
     }
+    // If neither condition is true, both axes scroll (diagonal scrolling allowed)
 
-    // Convert to integer for report (divide by 100)
+    // Convert to integer for report (divide by 100 to extract whole scroll units)
+    // Example: scroll_accumulated_h = 375 → mouse_report->h = 3 (send 3 scroll units)
     mouse_report->h = (int16_t)(scroll_accumulated_h / 100);
     mouse_report->v = (int16_t)(scroll_accumulated_v / 100);
 
-    // Retain fractional remainders
+    // Retain fractional remainders for next iteration
+    // Example: 375 - (3 * 100) = 75, keeping 0.75 scroll units for smooth accumulation
     scroll_accumulated_h -= mouse_report->h * 100;
     scroll_accumulated_v -= mouse_report->v * 100;
 
+    // Clear cursor movement since we're scrolling instead
     mouse_report->x = 0;
     mouse_report->y = 0;
 }
@@ -1049,6 +1061,7 @@ static void pimoroni_adaptive_scaling(report_mouse_t* mouse_report) {
 
 // Handles emulation state of trackballs
 static btn_state_t handle_mouse_buttons(report_mouse_t report, btn_state_t state) {
+    // Bitwise operation shifts 1 to the left 0 times, then checks if bitfield of report is 0 after the bitmask
     bool pressed = (report.buttons & (1 << 0)) != 0;
     uint16_t now = timer_read(); //
 
@@ -1129,11 +1142,6 @@ static report_mouse_t handle_mouse_mode_rgb(report_mouse_t left_report, report_m
         uint8_t current_layer = caps.caps_lock ? 6 : LAYER_CACHE;
         set_trackball_rgb_for_slave(current_layer, 2);
 
-        // Reset all accumulators on timeout
-        average_arrow_x = 0;
-        average_arrow_y = 0;
-        scroll_accumulated_h = 0;
-        scroll_accumulated_v = 0;
     }
 
     return pointing_device_combine_reports(left_report, right_report);
